@@ -1,0 +1,28 @@
+{% extends "calibration/base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Users</h3>
+  <a class="btn btn-primary" href="{% url 'user_create' %}">+ New user</a>
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead class="table-light"><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Emails</th><th>Devices</th><th>Last login</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+  <tr class="{% if not u.is_active %}text-muted{% endif %}">
+    <td>{{ u.username }}{% if not u.is_active %} <span class="badge bg-secondary">inactive</span>{% endif %}</td>
+    <td>{{ u.get_full_name }}</td><td>{{ u.email }}</td>
+    <td>{% if u.is_superuser %}Administrator (superuser){% else %}{{ u.get_role_display }}{% endif %}</td>
+    <td>{{ u.email_notifications|yesno:"On,Off" }}</td>
+    <td><a href="{% url 'device_list' %}?owner={{ u.pk }}">{{ u.device_count }}</a></td>
+    <td class="small">{{ u.last_login|default:"never" }}</td>
+    <td class="nowrap"><a href="{% url 'user_edit' u.pk %}">edit</a> · <a href="{% url 'user_password' u.pk %}">set password</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<div class="small text-muted mt-3">
+  <b>Owner</b>: sees and edits only own devices · <b>Viewer</b>: sees all devices, edits own ·
+  <b>Editor</b>: edits all devices, imports, gets all reminders · <b>Administrator</b>: everything incl. categories, users and settings.
+</div>
+{% endblock %}

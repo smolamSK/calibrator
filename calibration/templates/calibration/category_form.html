@@ -1,0 +1,13 @@
+{% extends "calibration/base.html" %}
+{% block title %}Category{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width: 720px"><div class="card-body">
+  <h4>{% if category %}Edit {{ category }}{% else %}New category{% endif %}</h4>
+  <form method="post">{% csrf_token %}
+    {% include "calibration/_form.html" %}
+    {% if category %}<p class="small text-muted">Changing the default interval recalculates next dates of all devices in this category without their own override.</p>{% endif %}
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" href="{% if category %}{% url 'category_detail' category.pk %}{% else %}{% url 'category_list' %}{% endif %}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

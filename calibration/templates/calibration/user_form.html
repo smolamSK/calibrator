@@ -1,0 +1,12 @@
+{% extends "calibration/base.html" %}
+{% block title %}User{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width: 720px"><div class="card-body">
+  <h4>{% if obj %}Edit {{ obj.username }}{% else %}New user{% endif %}</h4>
+  <form method="post">{% csrf_token %}
+    {% include "calibration/_form.html" %}
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" href="{% url 'user_list' %}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

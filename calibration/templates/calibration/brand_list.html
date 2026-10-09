@@ -1,0 +1,48 @@
+{% extends "calibration/base.html" %}
+{% block title %}Brands &amp; models{% endblock %}
+{% block content %}
+<h3 class="mb-3">Brands &amp; models</h3>
+<div class="row g-3 mb-3">
+  <div class="col-md-5"><div class="card"><div class="card-body">
+    <h6>Add manufacturer</h6>
+    <form method="post" action="{% url 'brand_create' %}" class="d-flex gap-2">{% csrf_token %}
+      {{ brand_form.name }}<button class="btn btn-primary">Add</button></form>
+  </div></div></div>
+  <div class="col-md-7"><div class="card"><div class="card-body">
+    <h6>Add model</h6>
+    <form method="post" action="{% url 'model_create' %}" class="d-flex flex-wrap flex-sm-nowrap gap-2">{% csrf_token %}
+      {{ model_form.manufacturer }}{{ model_form.name }}<button class="btn btn-primary">Add</button></form>
+  </div></div></div>
+</div>
+<div class="card"><div class="table-responsive"><table class="table mb-0">
+  <thead class="table-light"><tr><th>Manufacturer</th><th>Devices</th><th>Models</th><th></th></tr></thead>
+  <tbody>
+  {% for b in brands %}
+  <tr>
+    <td class="fw-semibold">{{ b.name }}</td>
+    <td><a href="{% url 'device_list' %}?manufacturer={{ b.pk }}">{{ b.device_count }}</a></td>
+    <td>
+      {% for m in b.models.all %}
+      <div class="d-flex justify-content-between align-items-center border-bottom py-1 gap-2">
+        <span>{{ m.name }} <span class="text-muted small">({{ m.device_count }} device{{ m.device_count|pluralize }})</span></span>
+        <span class="nowrap small">
+          <a href="{% url 'model_edit' m.pk %}">edit</a> ·
+          {% if m.device_count %}<span class="text-muted" title="Used by {{ m.device_count }} device(s)">delete</span>
+          {% else %}<form class="d-inline" method="post" action="{% url 'model_delete' m.pk %}">{% csrf_token %}<button class="btn btn-link btn-sm p-0 text-danger align-baseline" data-confirm="Delete model {{ m.name }}?">delete</button></form>{% endif %}
+        </span>
+      </div>
+      {% empty %}<span class="text-muted small">No models</span>
+      {% endfor %}
+    </td>
+    <td class="nowrap small">
+      <a href="{% url 'brand_edit' b.pk %}">rename</a> ·
+      {% if b.device_count %}<span class="text-muted" title="Used by {{ b.device_count }} device(s)">delete</span>
+      {% else %}<form class="d-inline" method="post" action="{% url 'brand_delete' b.pk %}">{% csrf_token %}<button class="btn btn-link btn-sm p-0 text-danger align-baseline" data-confirm="Delete {{ b.name }} and its unused models?">delete</button></form>{% endif %}
+    </td>
+  </tr>
+  {% empty %}<tr><td colspan="4" class="text-muted">No manufacturers yet. Add them here or with the + button on the device form.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<p class="small text-muted mt-2">Entries used by devices can be renamed but not deleted. Any user who edits a device can add new entries with the + button.</p>
+{% endblock %}

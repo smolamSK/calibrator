@@ -1,0 +1,29 @@
+{% extends "calibration/base.html" %}
+{% block title %}Import devices{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card"><div class="card-body">
+    <h4>Import devices</h4>
+    <p>Upload an Excel or CSV file. Next you'll map its columns and see a preview. Nothing is saved until you confirm.</p>
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}
+      {% include "calibration/_form.html" %}
+      <button class="btn btn-primary">Upload &amp; preview</button>
+    </form>
+  </div></div></div>
+  <div class="col-lg-7"><div class="card"><div class="card-body small">
+    <h5>File format</h5>
+    <ul>
+      <li>First row = column headers. One device per row.</li>
+      <li>Rows whose <b>Asset ID</b> already exists <b>update</b> that device; others are created.</li>
+      <li><b>Category</b> must match an existing category name. <b>Owner</b> = username, email or full name of an existing user.</li>
+      <li><b>Last calibration date</b> (DD.MM.YYYY) creates a history entry; the next date is calculated from the interval.</li>
+      <li><b>Manufacturer</b> and <b>Model</b> are matched to the brand list ignoring upper/lower case; missing ones are added automatically.</li>
+      <li>Columns named exactly like a category's custom field (e.g. “Range”) fill that field.</li>
+    </ul>
+    <p class="mb-1"><b>Recognised columns:</b></p>
+    <p>{% for key, label, required, aliases in targets %}<span class="badge {% if required %}bg-dark{% else %}bg-light text-dark border{% endif %} me-1">{{ label }}</span>{% endfor %}</p>
+    {% if categories %}<p class="mb-1"><b>Custom field columns per category:</b></p>
+    <ul>{% for c in categories %}<li>{{ c.name }}: {% for f in c.fields.all %}{% if f.field_type != 'file' %}“{{ f.name }}”{% if not forloop.last %}, {% endif %}{% endif %}{% empty %}<span class="text-muted">none</span>{% endfor %}</li>{% endfor %}</ul>{% endif %}
+  </div></div></div>
+</div>
+{% endblock %}

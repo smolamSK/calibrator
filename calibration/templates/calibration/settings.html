@@ -1,0 +1,35 @@
+{% extends "calibration/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h3 class="mb-3">Settings</h3>
+<form method="post">{% csrf_token %}
+{% for e in form.non_field_errors %}<div class="alert alert-danger">{{ e }}</div>{% endfor %}
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card"><div class="card-body">
+    <h5 class="card-title">General &amp; notifications</h5>
+    {% for field in form %}{% if field.name in "site_name base_url notifications_enabled due_soon_days overdue_repeat_days" %}{% include "calibration/_field.html" %}{% endif %}{% endfor %}
+    <p class="small text-muted mb-0">Reminder lead times (e.g. 60, 14, 0 days before due) are set per category.
+      Reminders go to the device owner and all Editors/Administrators, one summary email per person per day.</p>
+  </div></div></div>
+  <div class="col-lg-6"><div class="card"><div class="card-body">
+    <h5 class="card-title">Outgoing email (SMTP)
+      {% if settings.smtp_configured %}<span class="badge bg-success">configured</span>{% else %}<span class="badge bg-warning text-dark">not configured</span>{% endif %}</h5>
+    {% for field in form %}{% if field.name in "smtp_host smtp_port smtp_security smtp_username smtp_password clear_password from_email" %}{% include "calibration/_field.html" %}{% endif %}{% endfor %}
+    {% if has_password %}<p class="small text-muted">A password is stored.</p>{% endif %}
+    <details class="small text-muted"><summary>Examples</summary>
+      <ul class="mt-2">
+        <li>Gmail: smtp.gmail.com, 587, STARTTLS, your address + an <i>app password</i></li>
+        <li>Microsoft 365: smtp.office365.com, 587, STARTTLS (SMTP AUTH must be enabled for the mailbox)</li>
+        <li>Internal relay: host of your mail server, often port 25, no security, no login</li>
+      </ul>
+    </details>
+  </div></div></div>
+</div>
+<div class="mt-3 d-flex gap-2">
+  <button class="btn btn-primary">Save settings</button>
+</div>
+</form>
+<form method="post" class="mt-2">{% csrf_token %}
+  <button class="btn btn-outline-secondary" name="test_email" value="1">Send test email to {{ user.email|default:"(set your email in profile)" }}</button>
+</form>
+{% endblock %}

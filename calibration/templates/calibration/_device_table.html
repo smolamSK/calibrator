@@ -1,0 +1,19 @@
+{% load calibration_tags %}
+<div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
+  <thead><tr><th>Asset ID</th><th>Name</th><th>Category</th><th>Owner</th><th>Next calibration</th><th></th></tr></thead>
+  <tbody>
+  {% for d in devices %}
+  <tr>
+    <td class="nowrap"><a href="{% url 'device_detail' d.pk %}">{{ d.asset_tag }}</a></td>
+    <td>{{ d.name }}</td>
+    <td>{{ d.category }}</td>
+    <td>{{ d.owner }}</td>
+    <td class="nowrap">{{ d.next_calibration_date|default:"—" }}</td>
+    <td class="nowrap small text-muted">{{ d.days_until_due|days_text }}</td>
+  </tr>
+  {% empty %}<tr><td colspan="6" class="text-muted">None</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

@@ -1,0 +1,9 @@
+[Unit]
+Description=Calibrator: send calibration reminder emails
+
+[Service]
+Type=oneshot
+User=smolam
+Group=smolam
+WorkingDirectory=/home/smolam/calibrator
+ExecStart=/home/smolam/calibrator/.venv/bin/python manage.py send_reminders

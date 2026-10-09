@@ -1,0 +1,50 @@
+{% extends "calibration/base.html" %}
+{% block title %}Import preview{% endblock %}
+{% block content %}
+<h3 class="mb-3">Import preview</h3>
+<form method="post">{% csrf_token %}
+<div class="card mb-3"><div class="card-body">
+  <h5>Column mapping</h5>
+  <div class="row g-2">
+  {% for key, label, required, selected in targets %}
+    <div class="col-md-4 col-lg-3">
+      <label class="form-label small{% if required %} required{% endif %}">{{ label }}</label>
+      <select class="form-select form-select-sm" name="map_{{ key }}">
+        <option value="">— not in file —</option>
+        {% for h in headers %}<option value="{{ forloop.counter0 }}"{% if selected == forloop.counter0 %} selected{% endif %}>{{ h }}</option>{% endfor %}
+      </select>
+    </div>
+  {% endfor %}
+  </div>
+  <button class="btn btn-sm btn-outline-primary mt-3" name="remap" value="1">Update preview</button>
+</div></div>
+
+<div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+  <span class="badge bg-success fs-6">{{ counts.create }} new</span>
+  <span class="badge bg-primary fs-6">{{ counts.update }} update</span>
+  <span class="badge bg-danger fs-6">{{ counts.error }} errors</span>
+</div>
+<div class="card mb-3"><div class="table-responsive"><table class="table table-sm mb-0">
+  <thead class="table-light"><tr><th>Row</th><th>Action</th><th>Asset ID</th><th>Name</th><th>Category</th><th>Owner</th><th>Brand / model</th><th>Last cal.</th><th>Custom fields</th><th>Problems</th></tr></thead>
+  <tbody>
+  {% for r in results %}
+  <tr class="{% if r.action == 'error' %}table-danger{% endif %}">
+    <td>{{ r.line }}</td>
+    <td>{% if r.action == 'create' %}<span class="badge bg-success">new</span>{% elif r.action == 'update' %}<span class="badge bg-primary">update</span>{% else %}<span class="badge bg-danger">error</span>{% endif %}</td>
+    <td>{{ r.values.asset_tag }}</td><td>{{ r.values.name }}</td><td>{{ r.category|default:"" }}</td><td>{{ r.owner|default:"" }}</td>
+    <td>{{ r.brand_name }}{% if r.new_brand %} <span class="badge bg-info text-dark">new brand</span>{% endif %}
+      {{ r.model_name }}{% if r.new_model %} <span class="badge bg-info text-dark">new model</span>{% endif %}</td>
+    <td>{{ r.last_date|default:"" }}</td>
+    <td class="small">{% for fd, v in r.custom.values %}{{ fd.name }}={{ v }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+    <td class="small text-danger">{{ r.errors|join:"; " }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<div class="d-flex flex-wrap gap-3 align-items-center">
+  {% if counts.error %}<div class="form-check"><input class="form-check-input" type="checkbox" name="skip_errors" id="skip" value="1"><label class="form-check-label" for="skip">Skip rows with errors</label></div>{% endif %}
+  <button class="btn btn-success" name="apply" value="1">Import {{ counts.create|add:counts.update }} row(s)</button>
+  <a class="btn btn-outline-secondary" href="{% url 'import_upload' %}">Start over</a>
+</div>
+</form>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "calibration/base.html" %}
+{% load calibration_tags %}
+{% block title %}Devices{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h3 class="mb-0">Devices <span class="text-muted fs-5">({{ rows|length }})</span></h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="?{{ query }}{% if query %}&{% endif %}export=xlsx">Export Excel</a>
+    <a class="btn btn-outline-secondary btn-sm" href="?{{ query }}{% if query %}&{% endif %}export=csv">Export CSV</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'device_create' %}">+ New device</a>
+  </div>
+</div>
+<form class="card card-body mb-3" method="get">
+  <div class="row g-2">
+    <div class="col-12 col-md">{{ form.q }}</div>
+    <div class="col-6 col-md">{{ form.category }}</div>
+    <div class="col-6 col-md">{{ form.status }}</div>
+    <div class="col-6 col-md">{{ form.due }}</div>
+    <div class="col-6 col-md">{{ form.manufacturer }}</div>
+    {% if form.owner %}<div class="col-6 col-md">{{ form.owner }}</div>{% endif %}
+    <div class="col-12 col-md-auto"><button class="btn btn-sm btn-dark w-100">Filter</button></div>
+  </div>
+</form>
+<div class="card">
+<div class="table-responsive">
+<table class="table table-hover table-sm mb-0">
+  <thead class="table-light"><tr>
+    <th>Asset ID</th><th>Name</th><th>Category</th><th>Brand / model</th><th>Owner</th><th>Status</th><th>Location</th>
+    {% for f in extra_fields %}<th>{{ f.name }}</th>{% endfor %}
+    <th>Last cal.</th><th>Next cal.</th><th>Due</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}{% with d=r.device %}
+  <tr>
+    <td class="nowrap"><a href="{% url 'device_detail' d.pk %}">{{ d.asset_tag }}</a></td>
+    <td>{{ d.name }}</td>
+    <td>{{ d.category }}</td>
+    <td>{{ d.manufacturer|default:"" }} {{ d.device_model|default:"" }}</td>
+    <td>{{ d.owner }}</td>
+    <td>{% status_badge d %}</td>
+    <td>{{ d.location }}</td>
+    {% for v in r.extra %}<td>{{ v }}</td>{% endfor %}
+    <td class="nowrap">{{ d.last_calibration_date|default:"—" }}</td>
+    <td class="nowrap">{{ d.next_calibration_date|default:"—" }}</td>
+    <td class="nowrap">{% state_badge r.state %} <span class="small text-muted">{% if r.state != 'inactive' %}{{ r.days|days_text }}{% endif %}</span></td>
+  </tr>
+  {% endwith %}{% empty %}
+  <tr><td colspan="13" class="text-muted p-3">No devices match.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% if not extra_fields %}<p class="small text-muted mt-2">Tip: filter by a category to see its custom columns.</p>{% endif %}
+{% endblock %}

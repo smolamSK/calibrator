@@ -1,0 +1,100 @@
+{% extends "calibration/base.html" %}
+{% load calibration_tags %}
+{% block title %}{{ device.asset_tag }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+  <div>
+    <h3 class="mb-1">{{ device.asset_tag }} <span class="fw-normal">{{ device.name }}</span></h3>
+    <div>{% status_badge device %} {% state_badge state %} <span class="text-muted">{% if state != 'inactive' %}{{ days|days_text }}{% endif %}</span></div>
+  </div>
+  {% if can_edit %}
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-success" href="{% url 'event_create' device.pk %}">Record calibration</a>
+    <a class="btn btn-outline-primary" href="{% url 'device_edit' device.pk %}">Edit</a>
+    {% if can_delete %}<a class="btn btn-outline-danger" href="{% url 'device_delete' device.pk %}">Delete</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">Calibration</h5>
+      <dl class="row mb-0">
+        <dt class="col-6">Last calibration</dt><dd class="col-6">{{ device.last_calibration_date|default:"—" }}</dd>
+        <dt class="col-6">Next calibration</dt><dd class="col-6 fw-bold">{{ device.next_calibration_date|default:"—" }}</dd>
+        <dt class="col-6">Interval</dt><dd class="col-6">{{ device.effective_interval_months }} months
+          <span class="text-muted small">{% if device.interval_override_months %}(device override){% else %}(category default){% endif %}</span></dd>
+        <dt class="col-6">Reminders</dt><dd class="col-6">{{ device.category.reminder_days }} days before</dd>
+      </dl>
+    </div></div>
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">Details</h5>
+      <dl class="row mb-0">
+        <dt class="col-5">Category</dt><dd class="col-7">{{ device.category }}</dd>
+        <dt class="col-5">Owner</dt><dd class="col-7">{{ device.owner }}{% if device.owner.email %} <a class="small" href="mailto:{{ device.owner.email }}">{{ device.owner.email }}</a>{% endif %}</dd>
+        {% if device.manufacturer %}<dt class="col-5">Manufacturer</dt><dd class="col-7"><a href="{% url 'device_list' %}?manufacturer={{ device.manufacturer_id }}">{{ device.manufacturer }}</a></dd>{% endif %}
+        {% if device.device_model %}<dt class="col-5">Model</dt><dd class="col-7">{{ device.device_model }}</dd>{% endif %}
+        {% if device.serial_number %}<dt class="col-5">Serial number</dt><dd class="col-7">{{ device.serial_number }}</dd>{% endif %}
+        {% if device.location %}<dt class="col-5">Location</dt><dd class="col-7">{{ device.location }}</dd>{% endif %}
+        {% for fd, v in custom_values %}
+        <dt class="col-5">{{ fd.name }}</dt>
+        <dd class="col-7">{% if v and fd.field_type == 'file' and v.value_file %}<a href="{% url 'field_file_download' v.pk %}">{{ v.display }}</a>{% elif v %}{{ v.display|linebreaksbr|default:"—" }}{% else %}—{% endif %}</dd>
+        {% endfor %}
+      </dl>
+      {% if device.notes %}<hr><div class="small">{{ device.notes|linebreaksbr }}</div>{% endif %}
+    </div></div>
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">Documents</h5>
+      <ul class="list-unstyled mb-2">
+      {% for a in attachments %}
+        <li class="d-flex justify-content-between align-items-center py-1 border-bottom">
+          <span><a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>
+            {% if a.description %}<span class="text-muted small">– {{ a.description }}</span>{% endif %}</span>
+          {% if can_edit %}<form method="post" action="{% url 'attachment_delete' a.pk %}">{% csrf_token %}
+            <button class="btn btn-sm btn-link text-danger" data-confirm="Delete {{ a.original_name }}?">delete</button></form>{% endif %}
+        </li>
+      {% empty %}<li class="text-muted small">No documents (certificates are attached to calibration entries below).</li>
+      {% endfor %}
+      </ul>
+      {% if can_edit %}
+      <form method="post" enctype="multipart/form-data" action="{% url 'attachment_upload' device.pk %}" class="row g-2">
+        {% csrf_token %}
+        <div class="col-12">{{ attachment_form.file }}</div>
+        <div class="col-8">{{ attachment_form.description }}</div>
+        <div class="col-4"><button class="btn btn-outline-secondary w-100">Upload</button></div>
+      </form>
+      {% endif %}
+    </div></div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">Calibration history</h5>
+      <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>Date</th><th>Result</th><th>By</th><th>Certificate</th><th>Files</th><th></th></tr></thead>
+        <tbody>
+        {% for e in events %}
+        <tr>
+          <td class="nowrap">{{ e.date }}</td>
+          <td>{% if e.result == 'fail' %}<span class="badge bg-danger">{% elif e.result == 'pass' or e.result == 'adjusted' %}<span class="badge bg-success">{% else %}<span class="badge bg-secondary">{% endif %}{{ e.get_result_display }}</span></td>
+          <td>{{ e.get_provider_type_display }}{% if e.performed_by %}: {{ e.performed_by }}{% endif %}</td>
+          <td>{{ e.certificate_no }}</td>
+          <td>{% for a in e.attachments.all %}<a class="d-block small" href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>{% endfor %}</td>
+          <td class="nowrap">{% if can_edit %}<a class="small" href="{% url 'event_edit' e.pk %}">edit</a> · <a class="small text-danger" href="{% url 'event_delete' e.pk %}">delete</a>{% endif %}</td>
+        </tr>
+        {% if e.notes %}<tr><td></td><td colspan="5" class="small text-muted border-top-0 pt-0">{{ e.notes|linebreaksbr }}</td></tr>{% endif %}
+        {% empty %}<tr><td colspan="6" class="text-muted">No calibrations recorded yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div></div>
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">Change log</h5>
+      {% include "calibration/_audit_table.html" with entries=audit hide_object=True %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

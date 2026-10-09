@@ -1,0 +1,53 @@
+{% extends "calibration/base.html" %}
+{% block title %}{% if device %}Edit {{ device.asset_tag }}{% else %}New device{% endif %}{% endblock %}
+{% block content %}
+<h3 class="mb-3">{% if device %}Edit {{ device.asset_tag }}{% else %}New device{% endif %}</h3>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<div class="alert alert-danger">{{ e }}</div>{% endfor %}
+  <div class="row g-3">
+    <div class="col-lg-6"><div class="card"><div class="card-body">
+      <h5 class="card-title">General</h5>
+      {% for field in form.standard_fields %}
+        {% if field.name == "manufacturer" or field.name == "device_model" %}{% include "calibration/_lookup_field.html" %}
+        {% else %}{% include "calibration/_field.html" %}{% endif %}
+      {% endfor %}
+    </div></div></div>
+    <div class="col-lg-6"><div class="card"><div class="card-body">
+      <h5 class="card-title">{% if form.selected_category %}{{ form.selected_category }} fields{% else %}Category fields{% endif %}</h5>
+      {% for fd, field, value, clear in form.custom_bound_fields %}
+        {% include "calibration/_field.html" %}
+        {% if fd.field_type == 'file' and value and value.value_file %}
+          <div class="small mb-3 mt-n2">Current: <a href="{% url 'field_file_download' value.pk %}">{{ value.display }}</a>
+          {% if clear %} · {{ clear }} <label for="{{ clear.id_for_label }}">remove</label>{% endif %}</div>
+        {% endif %}
+      {% empty %}
+        <p class="text-muted">{% if form.selected_category %}This category has no extra fields.{% else %}Choose a category to see its fields.{% endif %}</p>
+      {% endfor %}
+    </div></div></div>
+  </div>
+  <div class="mt-3 d-flex gap-2">
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" href="{% if device %}{% url 'device_detail' device.pk %}{% else %}{% url 'device_list' %}{% endif %}">Cancel</a>
+  </div>
+</form>
+
+<div class="modal fade" id="lookup-modal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <form id="lookup-form" data-manufacturer-url="{% url 'manufacturer_quick_add' %}" data-model-url="{% url 'model_quick_add' %}">
+      <div class="modal-header"><h5 class="modal-title" id="lookup-title">Add</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2" id="lookup-context"></p>
+        <label class="form-label" for="lookup-name">Name</label>
+        <input class="form-control" id="lookup-name" maxlength="100" required autocomplete="off">
+        <div class="text-danger small mt-2" id="lookup-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary">Add</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endblock %}

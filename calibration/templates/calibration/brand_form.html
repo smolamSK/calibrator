@@ -1,0 +1,13 @@
+{% extends "calibration/base.html" %}
+{% block title %}Edit {{ what }}{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width: 560px"><div class="card-body">
+  <h4>Edit {{ what }} “{{ obj.name }}”</h4>
+  {% if what == "model" %}<p class="small text-muted">Moving a model to another manufacturer also changes the manufacturer of all devices using it.</p>{% endif %}
+  <form method="post">{% csrf_token %}
+    {% include "calibration/_form.html" %}
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-outline-secondary" href="{% url 'brand_list' %}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "calibration/base.html" %}
+{% block title %}Delete {{ what }}{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width: 560px">
+  <div class="card-body">
+    <h4>Delete {{ what }}?</h4>
+    <p class="fs-5">{{ object }}</p>
+    {% if warning %}<div class="alert alert-warning">{{ warning }}</div>{% endif %}
+    <form method="post">{% csrf_token %}
+      <button class="btn btn-danger">Delete</button>
+      <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

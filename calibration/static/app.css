@@ -1,0 +1,17 @@
+body { background: #f5f6f8; }
+.navbar-brand { font-weight: 600; letter-spacing: .02em; }
+.card { border: none; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.stat-card .display-6 { font-weight: 600; }
+.stat-card a { text-decoration: none; color: inherit; }
+.table td, .table th { vertical-align: middle; }
+.table-sm td { font-size: .925rem; }
+.form-label.required::after { content: " *"; color: #dc3545; }
+.audit-changes { font-size: .85rem; margin: 0; padding-left: 1rem; }
+.nowrap { white-space: nowrap; }
+@media (max-width: 576px) { .container-fluid { padding-left: 12px; padding-right: 12px; } }
+/* Built-in auth forms render plain inputs */
+.card form input[type=password]:not(.form-control),
+.card form input[type=email]:not(.form-control),
+.card form input[type=text]:not(.form-control) {
+  display: block; width: 100%; padding: .375rem .75rem; border: 1px solid #dee2e6; border-radius: .375rem;
+}

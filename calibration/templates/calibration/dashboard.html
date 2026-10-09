@@ -1,0 +1,48 @@
+{% extends "calibration/base.html" %}
+{% load calibration_tags %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h3 class="mb-0">Dashboard</h3>
+  <a class="btn btn-primary" href="{% url 'device_create' %}">+ New device</a>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card stat-card border-start border-danger border-4"><div class="card-body">
+    <a href="{% url 'device_list' %}?due=overdue"><div class="text-muted">Overdue</div><div class="display-6 text-danger">{{ overdue|length }}</div></a></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat-card border-start border-warning border-4"><div class="card-body">
+    <a href="{% url 'device_list' %}?due=due_soon"><div class="text-muted">Due within {{ settings.due_soon_days }} days</div><div class="display-6 text-warning">{{ due_soon|length }}</div></a></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat-card border-start border-success border-4"><div class="card-body">
+    <a href="{% url 'device_list' %}?due=ok"><div class="text-muted">OK</div><div class="display-6 text-success">{{ ok_count }}</div></a></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat-card border-start border-secondary border-4"><div class="card-body">
+    <a href="{% url 'device_list' %}?status=in_use"><div class="text-muted">Devices in use{% if user.can_view_all %} (mine: {{ my_count }}){% endif %}</div><div class="display-6">{{ total }}</div></a></div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="card mb-3"><div class="card-header bg-danger text-white">Overdue</div>
+      {% include "calibration/_device_table.html" with devices=overdue %}</div>
+    {% if never %}
+    <div class="card mb-3"><div class="card-header bg-secondary text-white">Never calibrated (no history)</div>
+      {% include "calibration/_device_table.html" with devices=never %}</div>
+    {% endif %}
+  </div>
+  <div class="col-xl-6">
+    <div class="card mb-3"><div class="card-header bg-warning">Due soon</div>
+      {% include "calibration/_device_table.html" with devices=due_soon %}</div>
+    {% if at_calibration %}
+    <div class="card mb-3"><div class="card-header bg-info">Currently at calibration</div>
+      {% include "calibration/_device_table.html" with devices=at_calibration %}</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if recent %}
+<div class="card mt-2"><div class="card-header">Recent activity</div>
+<div class="table-responsive"><table class="table table-sm mb-0">
+  {% for e in recent %}
+  <tr><td class="nowrap text-muted small">{{ e.timestamp }}</td><td>{{ e.username }}</td><td>{{ e.action }}</td>
+  <td>{% if e.device %}<a href="{% url 'device_detail' e.device_id %}">{{ e.object_repr }}</a>{% else %}{{ e.object_repr }}{% endif %}</td></tr>
+  {% endfor %}
+</table></div></div>
+{% endif %}
+{% endblock %}

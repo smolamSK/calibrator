@@ -1,0 +1,15 @@
+[Unit]
+Description=Calibrator web app (gunicorn)
+After=network.target
+
+[Service]
+User=smolam
+Group=smolam
+WorkingDirectory=/home/smolam/calibrator
+ExecStart=/home/smolam/calibrator/.venv/bin/gunicorn calibrator.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --access-logfile -
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
