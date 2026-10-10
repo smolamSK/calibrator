@@ -1,7 +1,8 @@
 {% extends "calibration/base.html" %}
 {% block title %}Settings{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item active">Settings</li>{% endblock %}
 {% block content %}
-<h3 class="mb-3">Settings</h3>
+<div class="page-header"><h3>Settings</h3></div>
 <form method="post">{% csrf_token %}
 {% for e in form.non_field_errors %}<div class="alert alert-danger">{{ e }}</div>{% endfor %}
 <div class="row g-3">

@@ -1,0 +1,28 @@
+{% load calibration_tags %}<div class="card mb-4"><div class="card-body">
+  <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">
+    <h5 class="card-title mb-0">Due in the next 12 months</h5>
+    <div class="chart-legend small text-muted">
+      <span><span class="legend-swatch kind-overdue"></span>{% icon "exclamation-triangle-fill" %} Overdue</span>
+      <span><span class="legend-swatch kind-soon"></span>{% icon "clock" %} Due soon</span>
+      <span><span class="legend-swatch kind-later"></span>Later</span>
+    </div>
+  </div>
+  {% if chart.total %}
+  <div class="due-chart" role="img" aria-label="Devices due per month; details in the table below">
+    {% for b in chart.bars %}
+    <a class="due-col{% if b.year_start %} year-start{% endif %}" href="{% url 'device_list' %}?{{ b.query }}"
+       title="{{ b.title }}: {{ b.count }} device{{ b.count|pluralize }}" aria-label="{{ b.title }}: {{ b.count }} device{{ b.count|pluralize }}">
+      <span class="due-plot"><span class="due-value{% if not b.show_value %} on-hover{% endif %}">{{ b.count }}</span><span class="due-bar kind-{{ b.kind }}" style="height: {{ b.height }}%"></span></span>
+      <span class="due-label{% if b.kind == 'overdue' %} fw-semibold{% endif %}">{{ b.label }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <p class="small text-muted mb-0 mt-2">Click a column to list those devices.</p>
+  <table class="visually-hidden"><caption>Devices due per month</caption>
+    <thead><tr><th>Period</th><th>Devices</th></tr></thead>
+    <tbody>{% for b in chart.bars %}<tr><td>{{ b.title }}</td><td>{{ b.count }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}
+  {% include "calibration/_empty.html" with icon="calendar-check" title="Nothing due in the next 12 months" text="Devices appear here once they have a calibration date." %}
+  {% endif %}
+</div></div>

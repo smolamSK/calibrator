@@ -1,7 +1,7 @@
 import csv
 import io
 import os
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 import markdown
 
@@ -11,7 +11,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import SetPasswordForm
 from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMessage
+from dateutil.relativedelta import relativedelta
 from django.db.models import Count, Prefetch, Q
+from django.db.models.functions import TruncMonth
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -107,9 +109,37 @@ def dashboard(request):
         "total": qs.exclude(status=Device.STATUS_RETIRED).count(),
         "my_count": Device.objects.filter(owner=request.user).exclude(status=Device.STATUS_RETIRED).count(),
     }
+    context["chart"] = _due_chart(active, today, soon)
     if request.user.can_view_all:
         context["recent"] = AuditLog.objects.select_related("device")[:10]
     return render(request, "calibration/dashboard.html", context)
+
+
+def _due_chart(active, today, soon):
+    """Bars for the dashboard: overdue now, then devices due in each of the next 12 months."""
+    first = today.replace(day=1)
+    months = [first + relativedelta(months=i) for i in range(12)]
+    end = months[-1] + relativedelta(months=1)
+    counts = dict(
+        active.filter(next_calibration_date__gte=today, next_calibration_date__lt=end)
+        .annotate(m=TruncMonth("next_calibration_date")).values_list("m").annotate(n=Count("id"))
+    )
+    counts = {(m.date() if isinstance(m, datetime) else m): n for m, n in counts.items()}
+    bars = [{
+        "label": "Overdue", "title": "Overdue", "count": active.filter(next_calibration_date__lt=today).count(),
+        "kind": "overdue", "query": "due=overdue",
+    }]
+    for m in months:
+        bars.append({
+            "label": m.strftime("%b"), "title": m.strftime("%B %Y"), "count": counts.get(m, 0),
+            "kind": "soon" if m <= soon else "later", "query": f"month={m:%Y-%m}",
+            "year_start": m.month == 1 and m != first,
+        })
+    peak = max(b["count"] for b in bars)
+    for b in bars:
+        b["height"] = round(100 * b["count"] / peak) if peak else 0
+        b["show_value"] = b["count"] and (b["kind"] == "overdue" or b["count"] == peak)
+    return {"bars": bars, "total": sum(b["count"] for b in bars), "first_year": first.year}
 
 
 # ------------------------------------------------------------------ devices
@@ -137,6 +167,9 @@ def _filtered_devices(request):
             qs = qs.filter(manufacturer=d["manufacturer"])
         if d["device_model"]:
             qs = qs.filter(device_model=d["device_model"])
+        month = _parse_month(request.GET.get("month"))
+        if month:
+            qs = qs.filter(next_calibration_date__gte=month, next_calibration_date__lt=month + relativedelta(months=1))
         if d["due"]:
             today = timezone.localdate()
             soon = today + timedelta(days=SiteSettings.load().due_soon_days)
@@ -148,6 +181,13 @@ def _filtered_devices(request):
                 "unknown": active & Q(next_calibration_date__isnull=True),
             }[d["due"]])
     return form, qs
+
+
+def _parse_month(raw):
+    try:
+        return datetime.strptime(raw or "", "%Y-%m").date()
+    except ValueError:
+        return None
 
 
 def _list_columns(form):
@@ -182,8 +222,14 @@ def device_list(request):
         })
     query = request.GET.copy()
     query.pop("export", None)
+    month = _parse_month(request.GET.get("month"))
+    without_month = query.copy()
+    without_month.pop("month", None)
     return render(request, "calibration/device_list.html", {
         "form": form, "rows": rows, "extra_fields": extra_fields, "query": query.urlencode(),
+        "month": month, "without_month": without_month.urlencode(),
+        "filtered": any(v for k, v in request.GET.items() if k != "export"),
+        "has_devices": rows or visible_devices(request.user).exists(),
     })
 
 

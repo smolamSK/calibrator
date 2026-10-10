@@ -636,3 +636,63 @@ class ThemeTests(Fixture):
         self.assertEqual(r.status_code, 302)
         self.owner.refresh_from_db()
         self.assertEqual((self.owner.theme_mode, self.owner.theme_accent), ("", "indigo"))
+
+
+class VisualTests(Fixture):
+    def test_icon_tag_and_badges(self):
+        from calibration.templatetags.calibration_tags import icon, state_badge
+
+        self.assertEqual(icon("pencil"), '<i class="bi bi-pencil" aria-hidden="true"></i>')
+        self.assertIn("bi-exclamation-triangle-fill", state_badge("overdue"))
+
+    def test_dashboard_chart_counts_and_links(self):
+        today = timezone.localdate()
+        next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+        Device.objects.filter(pk=self.dev.pk).update(next_calibration_date=next_month + timedelta(days=3))
+        Device.objects.filter(pk=self.dev_other.pk).update(next_calibration_date=today - timedelta(days=5))
+        self.client.force_login(self.editor)
+        r = self.client.get(reverse("dashboard"))
+        bars = r.context["chart"]["bars"]
+        self.assertEqual(len(bars), 13)
+        self.assertEqual((bars[0]["kind"], bars[0]["count"]), ("overdue", 1))
+        self.assertEqual(bars[2]["count"], 1)
+        self.assertEqual(bars[2]["query"], f"month={next_month:%Y-%m}")
+        self.assertContains(r, f'?month={next_month:%Y-%m}')
+        # owners only count their own devices
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(reverse("dashboard")).context["chart"]["bars"][0]["count"], 0)
+
+    def test_month_filter(self):
+        Device.objects.filter(pk=self.dev.pk).update(next_calibration_date=date(2027, 3, 15))
+        Device.objects.filter(pk=self.dev_other.pk).update(next_calibration_date=date(2027, 4, 1))
+        self.client.force_login(self.viewer)
+        r = self.client.get(reverse("device_list") + "?month=2027-03")
+        self.assertEqual([x["device"].asset_tag for x in r.context["rows"]], ["MM-1"])
+        self.assertContains(r, "Due in March 2027")
+        r = self.client.get(reverse("device_list") + "?month=bogus")
+        self.assertEqual(len(r.context["rows"]), 2)
+
+    def test_empty_states(self):
+        self.client.force_login(self.viewer)
+        r = self.client.get(reverse("device_list") + "?q=nothing-like-this")
+        self.assertContains(r, "No devices match these filters")
+        self.assertContains(r, "Clear filters")
+        r = self.client.get(reverse("device_detail", args=[self.dev.pk]))
+        self.assertContains(r, "No calibrations yet")
+        Device.objects.all().delete()
+        self.client.force_login(self.editor)
+        r = self.client.get(reverse("device_list"))
+        self.assertContains(r, "No devices yet")
+        self.assertContains(r, reverse("import_upload"))
+
+    def test_timeline_breadcrumbs_favicon(self):
+        CalibrationEvent.objects.create(device=self.dev, date=date(2025, 1, 1), result="fail")
+        CalibrationEvent.objects.create(device=self.dev, date=date(2026, 1, 1), certificate_no="C-9")
+        self.client.force_login(self.owner)
+        r = self.client.get(reverse("device_detail", args=[self.dev.pk]))
+        self.assertContains(r, 'class="timeline-item result-fail"')
+        self.assertContains(r, "C-9")
+        self.assertContains(r, "Latest", count=1)
+        self.assertContains(r, 'class="breadcrumb-item active">MM-1<')
+        self.assertContains(r, 'rel="icon"')
+        self.assertContains(r, "bootstrap-icons")

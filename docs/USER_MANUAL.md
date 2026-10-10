@@ -35,6 +35,7 @@ The start page shows what needs attention:
 - **Never calibrated (no history)**: devices without any calibration recorded yet, so no due date can be calculated.
 - **Currently at calibration**: devices with the status *At calibration*.
 - **Devices in use**: the number of devices that are not retired.
+- **Due in the next 12 months**: a column chart showing how many devices are overdue and how many fall due in each coming month. Red is overdue, amber is due soon, and the rest are later. Hover over a column to see its number, and click it to list those devices.
 - **Recent activity** (Viewers and above): the latest changes.
 
 Click an Asset ID to open the device. **+ New device** creates one.
@@ -48,6 +49,8 @@ Click an Asset ID to open the device. **+ New device** creates one.
 - **Due date**: Overdue, Due soon, OK, Never calibrated.
 - **Manufacturer** and **Model**: picking a manufacturer narrows the model list to its models.
 - **Owner** (Viewers and above).
+
+On a phone, the list shows each device as a compact card instead of a wide table. When the list is long on a computer, the column headings stay visible while you scroll.
 
 When you filter by a manufacturer or model, the list can show extra columns for that manufacturer's or model's custom fields. Which fields appear is chosen by an Editor.
 
@@ -72,7 +75,7 @@ A device page has these sections:
   - *from model* / *from manufacturer*: set on the device's model or manufacturer by an Editor.
   - *default*: the general default from Settings.
 - **Details**: owner, status, manufacturer, model, serial number, location, notes and the custom fields of its manufacturer and model.
-- **Calibration history**: every calibration recorded, newest first, with certificates.
+- **Calibration history**: a timeline of every calibration, newest first. The dot shows the result (green pass, amber limited use, red fail, grey not recorded), and certificates can be downloaded from each entry.
 - **Documents**: manuals, photos and other files. **Upload** adds a file (up to 25 MB).
 - **Change log**: who changed what and when.
 

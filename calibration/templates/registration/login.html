@@ -2,7 +2,7 @@
 {% block title %}Log in{% endblock %}
 {% block content %}
 <div class="card mx-auto mt-5" style="max-width: 420px"><div class="card-body p-4">
-  <h3 class="mb-4 text-center">Calibrator</h3>
+  <div class="text-center mb-4 login-brand">{% include "calibration/_logo.html" %}<h3 class="mt-2 mb-0">Calibrator</h3></div>
   {% if form.errors %}<div class="alert alert-danger">Wrong username or password.</div>{% endif %}
   <form method="post">{% csrf_token %}
     <div class="mb-3"><label class="form-label" for="id_username">Username</label>

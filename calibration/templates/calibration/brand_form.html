@@ -1,5 +1,6 @@
 {% extends "calibration/base.html" %}
 {% block title %}Edit {{ what }}{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item"><a href="{% url 'brand_list' %}">Brands &amp; models</a></li>{% if what == "model" %}<li class="breadcrumb-item"><a href="{% url 'brand_detail' obj.manufacturer_id %}">{{ obj.manufacturer }}</a></li><li class="breadcrumb-item"><a href="{% url 'model_detail' obj.pk %}">{{ obj }}</a></li>{% else %}<li class="breadcrumb-item"><a href="{% url 'brand_detail' obj.pk %}">{{ obj }}</a></li>{% endif %}<li class="breadcrumb-item active">Edit</li>{% endblock %}
 {% block content %}
 <div class="card mx-auto" style="max-width: 560px"><div class="card-body">
   <h4>Edit {{ what }} “{{ obj.name }}”</h4>

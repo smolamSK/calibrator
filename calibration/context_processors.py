@@ -7,7 +7,7 @@ def theme(request):
     user = getattr(request, "user", None)
     personal = user if user is not None and user.is_authenticated else None
     return {
-        "theme_choices": [("light", "☀", "Light"), ("dark", "☾", "Dark"), ("auto", "◐", "Auto (follow system)")],
+        "theme_choices": [("light", "sun", "Light"), ("dark", "moon-stars", "Dark"), ("auto", "circle-half", "Auto (follow system)")],
         "theme_mode": (personal and personal.theme_mode) or site.theme_mode,
         "theme_accent": (personal and personal.theme_accent) or site.theme_accent,
     }

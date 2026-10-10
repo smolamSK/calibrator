@@ -1,7 +1,8 @@
 {% extends "calibration/base.html" %}
 {% block title %}{% if device %}Edit {{ device.asset_tag }}{% else %}New device{% endif %}{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item"><a href="{% url 'device_list' %}?status=in_use">Devices</a></li>{% if device %}<li class="breadcrumb-item"><a href="{% url 'device_detail' device.pk %}">{{ device.asset_tag }}</a></li><li class="breadcrumb-item active">Edit</li>{% else %}<li class="breadcrumb-item active">New device</li>{% endif %}{% endblock %}
 {% block content %}
-<h3 class="mb-3">{% if device %}Edit {{ device.asset_tag }}{% else %}New device{% endif %}</h3>
+<div class="page-header"><h3>{% if device %}Edit {{ device.asset_tag }}{% else %}New device{% endif %}</h3></div>
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
   {% for e in form.non_field_errors %}<div class="alert alert-danger">{{ e }}</div>{% endfor %}

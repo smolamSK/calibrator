@@ -1,0 +1,9 @@
+{% load calibration_tags %}<div class="empty-state">
+  <div class="empty-icon">{% icon icon|default:"inbox" %}</div>
+  <div class="fw-semibold">{{ title }}</div>
+  {% if text %}<div class="small text-muted">{{ text }}</div>{% endif %}
+  {% if action_url or action2_url %}<div class="d-flex flex-wrap justify-content-center gap-2 mt-2">
+    {% if action_url %}<a class="btn btn-sm btn-primary" href="{{ action_url }}">{% if action_icon %}{% icon action_icon %} {% endif %}{{ action_label }}</a>{% endif %}
+    {% if action2_url %}<a class="btn btn-sm btn-outline-secondary" href="{{ action2_url }}">{{ action2_label }}</a>{% endif %}
+  </div>{% endif %}
+</div>

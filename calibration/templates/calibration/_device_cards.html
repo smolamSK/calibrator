@@ -1,0 +1,16 @@
+{% load calibration_tags %}{# Compact device list for phones. Expects `items`: dicts with device, state, days. #}
+<div class="device-cards">
+{% for r in items %}{% with d=r.device %}
+  <a class="device-card border-start border-4 border-{{ r.state|state_color }}" href="{% url 'device_detail' d.pk %}">
+    <div class="d-flex justify-content-between gap-2">
+      <div class="text-truncate"><span class="fw-semibold">{{ d.asset_tag }}</span> <span class="text-body">{{ d.name }}</span></div>
+      <div class="nowrap">{% state_badge r.state %}</div>
+    </div>
+    <div class="small text-muted d-flex flex-wrap column-gap-3">
+      {% if d.manufacturer %}<span>{{ d.manufacturer }} {{ d.device_model|default:"" }}</span>{% endif %}
+      <span class="num">{% icon "calendar-event" %} {{ d.next_calibration_date|default:"no date" }}{% if r.state != 'inactive' and r.days is not None %} · {{ r.days|days_text }}{% endif %}</span>
+      <span>{% icon "person" %} {{ d.owner }}</span>
+    </div>
+  </a>
+{% endwith %}{% endfor %}
+</div>

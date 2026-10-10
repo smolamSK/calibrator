@@ -1,5 +1,6 @@
 {% extends "calibration/base.html" %}
 {% block title %}User{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item"><a href="{% url 'user_list' %}">Users</a></li><li class="breadcrumb-item active">{% if obj %}{{ obj.username }}{% else %}New user{% endif %}</li>{% endblock %}
 {% block content %}
 <div class="card mx-auto" style="max-width: 720px"><div class="card-body">
   <h4>{% if obj %}Edit {{ obj.username }}{% else %}New user{% endif %}</h4>

@@ -1,17 +1,18 @@
 {% extends "calibration/base.html" %}
 {% load calibration_tags %}
 {% block title %}{{ device.asset_tag }}{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item"><a href="{% url 'device_list' %}?status=in_use">Devices</a></li><li class="breadcrumb-item active">{{ device.asset_tag }}</li>{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+<div class="page-header">
   <div>
-    <h3 class="mb-1">{{ device.asset_tag }} <span class="fw-normal">{{ device.name }}</span></h3>
-    <div>{% status_badge device %} {% state_badge state %} <span class="text-muted">{% if state != 'inactive' %}{{ days|days_text }}{% endif %}</span></div>
+    <h3>{{ device.asset_tag }} <span class="fw-normal">{{ device.name }}</span></h3>
+    <div class="mt-1">{% status_badge device %} {% state_badge state %} <span class="text-muted">{% if state != 'inactive' %}{{ days|days_text }}{% endif %}</span></div>
   </div>
   {% if can_edit %}
-  <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-success" href="{% url 'event_create' device.pk %}">Record calibration</a>
-    <a class="btn btn-outline-primary" href="{% url 'device_edit' device.pk %}">Edit</a>
-    {% if can_delete %}<a class="btn btn-outline-danger" href="{% url 'device_delete' device.pk %}">Delete</a>{% endif %}
+  <div class="page-actions">
+    <a class="btn btn-success" href="{% url 'event_create' device.pk %}">{% icon "clipboard-check" %} Record calibration</a>
+    <a class="btn btn-outline-primary" href="{% url 'device_edit' device.pk %}">{% icon "pencil" %} Edit</a>
+    {% if can_delete %}<a class="btn btn-outline-danger" href="{% url 'device_delete' device.pk %}">{% icon "trash" %} Delete</a>{% endif %}
   </div>
   {% endif %}
 </div>
@@ -19,7 +20,7 @@
 <div class="row g-3">
   <div class="col-lg-5">
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Calibration</h5>
+      <h5 class="card-title">{% icon "calendar-check" %} Calibration</h5>
       <dl class="row mb-0">
         <dt class="col-6">Last calibration</dt><dd class="col-6">{{ device.last_calibration_date|default:"—" }}</dd>
         <dt class="col-6">Next calibration</dt><dd class="col-6 fw-bold">{{ device.next_calibration_date|default:"—" }}</dd>
@@ -29,7 +30,7 @@
       </dl>
     </div></div>
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Details</h5>
+      <h5 class="card-title">{% icon "info-circle" %} Details</h5>
       <dl class="row mb-0">
         <dt class="col-5">Owner</dt><dd class="col-7">{{ device.owner }}{% if device.owner.email %} <a class="small" href="mailto:{{ device.owner.email }}">{{ device.owner.email }}</a>{% endif %}</dd>
         {% if device.manufacturer %}<dt class="col-5">Manufacturer</dt><dd class="col-7"><a href="{% url 'device_list' %}?manufacturer={{ device.manufacturer_id }}">{{ device.manufacturer }}</a></dd>{% endif %}
@@ -44,16 +45,16 @@
       {% if device.notes %}<hr><div class="small">{{ device.notes|linebreaksbr }}</div>{% endif %}
     </div></div>
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Documents</h5>
+      <h5 class="card-title">{% icon "folder2-open" %} Documents</h5>
       <ul class="list-unstyled mb-2">
       {% for a in attachments %}
         <li class="d-flex justify-content-between align-items-center py-1 border-bottom">
-          <span><a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>
+          <span>{% icon "file-earmark" "text-muted" %} <a href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>
             {% if a.description %}<span class="text-muted small">– {{ a.description }}</span>{% endif %}</span>
           {% if can_edit %}<form method="post" action="{% url 'attachment_delete' a.pk %}">{% csrf_token %}
-            <button class="btn btn-sm btn-link text-danger" data-confirm="Delete {{ a.original_name }}?">delete</button></form>{% endif %}
+            <button class="btn btn-sm btn-link text-danger" data-confirm="Delete {{ a.original_name }}?" title="Delete" aria-label="Delete {{ a.original_name }}">{% icon "trash" %}</button></form>{% endif %}
         </li>
-      {% empty %}<li class="text-muted small">No documents (certificates are attached to calibration entries below).</li>
+      {% empty %}<li>{% include "calibration/_empty.html" with icon="folder2" title="No documents" text="Manuals, photos and other files go here. Certificates are attached to calibration entries." %}</li>
       {% endfor %}
       </ul>
       {% if can_edit %}
@@ -61,7 +62,7 @@
         {% csrf_token %}
         <div class="col-12">{{ attachment_form.file }}</div>
         <div class="col-8">{{ attachment_form.description }}</div>
-        <div class="col-4"><button class="btn btn-outline-secondary w-100">Upload</button></div>
+        <div class="col-4"><button class="btn btn-outline-secondary w-100">{% icon "paperclip" %} Upload</button></div>
       </form>
       {% endif %}
     </div></div>
@@ -69,29 +70,39 @@
 
   <div class="col-lg-7">
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Calibration history</h5>
-      <div class="table-responsive">
-      <table class="table table-sm">
-        <thead><tr><th>Date</th><th>Result</th><th>By</th><th>Certificate</th><th>Files</th><th></th></tr></thead>
-        <tbody>
+      <h5 class="card-title">{% icon "clock-history" %} Calibration history</h5>
+      {% if events %}
+      <ol class="timeline">
         {% for e in events %}
-        <tr>
-          <td class="nowrap">{{ e.date }}</td>
-          <td>{% if e.result == 'fail' %}<span class="badge bg-danger">{% elif e.result == 'pass' or e.result == 'adjusted' %}<span class="badge bg-success">{% else %}<span class="badge bg-secondary">{% endif %}{{ e.get_result_display }}</span></td>
-          <td>{{ e.get_provider_type_display }}{% if e.performed_by %}: {{ e.performed_by }}{% endif %}</td>
-          <td>{{ e.certificate_no }}</td>
-          <td>{% for a in e.attachments.all %}<a class="d-block small" href="{% url 'attachment_download' a.pk %}">{{ a.original_name }}</a>{% endfor %}</td>
-          <td class="nowrap">{% if can_edit %}<a class="small" href="{% url 'event_edit' e.pk %}">edit</a> · <a class="small text-danger" href="{% url 'event_delete' e.pk %}">delete</a>{% endif %}</td>
-        </tr>
-        {% if e.notes %}<tr><td></td><td colspan="5" class="small text-muted border-top-0 pt-0">{{ e.notes|linebreaksbr }}</td></tr>{% endif %}
-        {% empty %}<tr><td colspan="6" class="text-muted">No calibrations recorded yet.</td></tr>
+        <li class="timeline-item result-{{ e.result }}">
+          <span class="timeline-dot"></span>
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div>
+              <span class="fw-semibold num">{{ e.date }}</span>
+              {% if e.result == 'fail' %}<span class="badge bg-danger">{% icon "x-circle" %}{% elif e.result == 'limited' %}<span class="badge bg-warning text-dark">{% icon "exclamation-circle" %}{% elif e.result == 'pass' or e.result == 'adjusted' %}<span class="badge bg-success">{% icon "check-circle" %}{% else %}<span class="badge bg-secondary">{% icon "dash-circle" %}{% endif %} {{ e.get_result_display }}</span>
+              {% if forloop.first %}<span class="badge rounded-pill bg-body-tertiary text-body border">Latest</span>{% endif %}
+            </div>
+            {% if can_edit %}<div class="nowrap">
+              <a class="btn btn-sm btn-link p-0 me-2" href="{% url 'event_edit' e.pk %}" title="Edit" aria-label="Edit calibration of {{ e.date }}">{% icon "pencil" %}</a>
+              <a class="btn btn-sm btn-link p-0 text-danger" href="{% url 'event_delete' e.pk %}" title="Delete" aria-label="Delete calibration of {{ e.date }}">{% icon "trash" %}</a>
+            </div>{% endif %}
+          </div>
+          <div class="small text-muted mt-1 d-flex flex-wrap column-gap-3">
+            <span>{% if e.provider_type == 'external' %}{% icon "building" %}{% else %}{% icon "house" %}{% endif %} {{ e.get_provider_type_display }}{% if e.performed_by %}: {{ e.performed_by }}{% endif %}</span>
+            {% if e.certificate_no %}<span>{% icon "patch-check" %} {{ e.certificate_no }}</span>{% endif %}
+          </div>
+          {% for a in e.attachments.all %}<a class="d-inline-block small me-3" href="{% url 'attachment_download' a.pk %}">{% icon "download" %} {{ a.original_name }}</a>{% endfor %}
+          {% if e.notes %}<div class="small text-muted mt-1">{{ e.notes|linebreaksbr }}</div>{% endif %}
+        </li>
         {% endfor %}
-        </tbody>
-      </table>
-      </div>
+      </ol>
+      {% else %}
+        {% if can_edit %}{% url 'event_create' device.pk as record_url %}{% endif %}
+        {% include "calibration/_empty.html" with icon="clipboard" title="No calibrations yet" text="Record the first calibration to calculate the next due date." action_url=record_url action_label="Record calibration" action_icon="clipboard-check" %}
+      {% endif %}
     </div></div>
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Change log</h5>
+      <h5 class="card-title">{% icon "journal-text" %} Change log</h5>
       {% include "calibration/_audit_table.html" with entries=audit hide_object=True %}
     </div></div>
   </div>

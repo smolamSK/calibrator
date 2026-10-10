@@ -97,3 +97,70 @@ html[data-bs-theme="dark"] .app-navbar { background: #161a1d; border-bottom: 3px
 .manual pre { background: var(--bs-secondary-bg); padding: .75rem 1rem; border-radius: .375rem; overflow-x: auto; }
 .manual pre code { padding: 0; background: none; }
 .manual img { max-width: 100%; }
+
+/* ---------- Logo ---------- */
+.app-logo { width: 1.6em; height: 1.6em; flex: none; }
+.login-brand { color: var(--accent); }
+.login-brand .app-logo { width: 3rem; height: 3rem; }
+
+/* ---------- Page headers & breadcrumbs ---------- */
+.breadcrumb:empty { display: none; }
+.breadcrumb { --bs-breadcrumb-margin-bottom: .25rem; }
+.page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .75rem; margin-bottom: 1rem; }
+.page-header h3 { margin: 0; }
+.page-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* ---------- Aligned numbers ---------- */
+.table, .stat-card, .timeline, .due-chart, .num, .device-cards { font-variant-numeric: tabular-nums; }
+
+/* ---------- Sticky table headers ---------- */
+.table-scroll { max-height: calc(100vh - 14rem); min-height: 12rem; overflow: auto; }
+.table-scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--bs-secondary-bg); box-shadow: inset 0 -1px 0 var(--bs-border-color); }
+
+/* ---------- Empty states ---------- */
+.empty-state { text-align: center; padding: 1.75rem 1rem; color: var(--bs-body-color); }
+.empty-state .empty-icon { font-size: 2rem; line-height: 1; color: var(--bs-secondary-color); margin-bottom: .5rem; }
+
+/* ---------- Device cards (phones) ---------- */
+.device-cards { display: grid; gap: .5rem; }
+.device-card { display: block; padding: .6rem .75rem; border-radius: .5rem; background: var(--bs-body-bg);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08); text-decoration: none; color: inherit; }
+[data-bs-theme="dark"] .device-card { box-shadow: 0 0 0 1px var(--bs-border-color-translucent); }
+.device-card .fw-semibold { color: var(--bs-link-color); }
+
+/* ---------- Filter chip ---------- */
+.filter-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .65rem; border-radius: 1rem; font-size: .875rem;
+  background: rgba(var(--accent-rgb), .12); color: var(--bs-body-color); text-decoration: none; border: 1px solid rgba(var(--accent-rgb), .35); }
+.filter-chip:hover { background: rgba(var(--accent-rgb), .2); }
+
+/* ---------- Calibration timeline ---------- */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 1.5rem; position: relative; }
+.timeline::before { content: ""; position: absolute; left: .45rem; top: .4rem; bottom: .4rem; width: 2px; background: var(--bs-border-color); }
+.timeline-item { position: relative; padding-bottom: 1.1rem; }
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-dot { position: absolute; left: -1.5rem; top: .3rem; width: .95rem; height: .95rem; border-radius: 50%;
+  background: var(--bs-secondary); border: 2px solid var(--bs-body-bg); box-shadow: 0 0 0 1px var(--bs-border-color); }
+.result-pass .timeline-dot, .result-adjusted .timeline-dot { background: var(--bs-success); }
+.result-limited .timeline-dot { background: var(--bs-warning); }
+.result-fail .timeline-dot { background: var(--bs-danger); }
+
+/* ---------- Dashboard chart: due per month ---------- */
+.due-chart { display: flex; align-items: stretch; gap: 2px; height: 180px; padding-top: .25rem; }
+.due-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--bs-secondary-color); border-radius: .25rem; }
+.due-col:hover, .due-col:focus-visible { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.due-col:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.due-plot { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; border-bottom: 1px solid var(--bs-border-color); }
+.due-bar { width: 70%; max-width: 24px; min-height: 0; border-radius: 4px 4px 0 0; }
+.due-bar.kind-overdue, .legend-swatch.kind-overdue { background: var(--bs-danger); }
+.due-bar.kind-soon, .legend-swatch.kind-soon { background: #b07800; }  /* amber with 3:1+ contrast on white */
+[data-bs-theme="dark"] .due-bar.kind-soon, [data-bs-theme="dark"] .legend-swatch.kind-soon { background: var(--bs-warning); }
+.due-bar.kind-later, .legend-swatch.kind-later { background: var(--accent); }
+[data-bs-theme="dark"] .due-bar.kind-later, [data-bs-theme="dark"] .legend-swatch.kind-later { background: var(--accent-soft); }
+.due-value { font-size: .8rem; font-weight: 600; color: var(--bs-body-color); line-height: 1.4; }
+.due-value.on-hover { visibility: hidden; }
+.due-col:hover .due-value, .due-col:focus-visible .due-value { visibility: visible; }
+.due-label { font-size: .75rem; padding-top: .25rem; white-space: nowrap; }
+.due-col.year-start .due-label { font-weight: 600; color: var(--bs-body-color); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: .9rem; }
+.legend-swatch { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; margin-right: .3rem; vertical-align: -1px; }
+@media (max-width: 576px) { .due-chart { height: 150px; } .due-label { font-size: .65rem; } }

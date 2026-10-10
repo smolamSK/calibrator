@@ -1,19 +1,23 @@
-{% load calibration_tags %}
-<div class="table-responsive">
+{% load calibration_tags %}{% device_rows devices as items %}
+{% if items %}
+<div class="table-responsive d-none d-md-block">
 <table class="table table-sm table-hover mb-0">
   <thead><tr><th>Asset ID</th><th>Name</th><th>Brand / model</th><th>Owner</th><th>Next calibration</th><th></th></tr></thead>
   <tbody>
-  {% for d in devices %}
+  {% for r in items %}{% with d=r.device %}
   <tr>
     <td class="nowrap"><a href="{% url 'device_detail' d.pk %}">{{ d.asset_tag }}</a></td>
     <td>{{ d.name }}</td>
     <td>{{ d.manufacturer|default:"" }} {{ d.device_model|default:"" }}</td>
     <td>{{ d.owner }}</td>
     <td class="nowrap">{{ d.next_calibration_date|default:"—" }}</td>
-    <td class="nowrap small text-muted">{{ d.days_until_due|days_text }}</td>
+    <td class="nowrap small text-muted">{{ r.days|days_text }}</td>
   </tr>
-  {% empty %}<tr><td colspan="6" class="text-muted">None</td></tr>
-  {% endfor %}
+  {% endwith %}{% endfor %}
   </tbody>
 </table>
 </div>
+<div class="d-md-none p-2">{% include "calibration/_device_cards.html" %}</div>
+{% else %}
+{% include "calibration/_empty.html" with icon=empty_icon|default:"check-circle" title=empty_title|default:"Nothing here" text=empty_text %}
+{% endif %}

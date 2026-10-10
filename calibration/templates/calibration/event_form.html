@@ -1,5 +1,6 @@
 {% extends "calibration/base.html" %}
 {% block title %}Calibration – {{ device.asset_tag }}{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item"><a href="{% url 'device_list' %}?status=in_use">Devices</a></li><li class="breadcrumb-item"><a href="{% url 'device_detail' device.pk %}">{{ device.asset_tag }}</a></li><li class="breadcrumb-item active">{% if event %}Edit calibration{% else %}Record calibration{% endif %}</li>{% endblock %}
 {% block content %}
 <div class="card mx-auto" style="max-width: 720px"><div class="card-body">
   <h4>{% if event %}Edit calibration entry{% else %}Record calibration{% endif %}</h4>

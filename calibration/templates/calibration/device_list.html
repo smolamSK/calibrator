@@ -1,16 +1,18 @@
 {% extends "calibration/base.html" %}
 {% load calibration_tags %}
 {% block title %}Devices{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item active">Devices</li>{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-  <h3 class="mb-0">Devices <span class="text-muted fs-5">({{ rows|length }})</span></h3>
-  <div class="d-flex gap-2">
-    <a class="btn btn-outline-secondary btn-sm" href="?{{ query }}{% if query %}&{% endif %}export=xlsx">Export Excel</a>
-    <a class="btn btn-outline-secondary btn-sm" href="?{{ query }}{% if query %}&{% endif %}export=csv">Export CSV</a>
-    <a class="btn btn-primary btn-sm" href="{% url 'device_create' %}">+ New device</a>
+<div class="page-header">
+  <h3>Devices <span class="text-muted fs-5 num">({{ rows|length }})</span></h3>
+  <div class="page-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="?{{ query }}{% if query %}&{% endif %}export=xlsx">{% icon "file-earmark-spreadsheet" %} Export Excel</a>
+    <a class="btn btn-outline-secondary btn-sm" href="?{{ query }}{% if query %}&{% endif %}export=csv">{% icon "filetype-csv" %} Export CSV</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'device_create' %}">{% icon "plus-lg" %} New device</a>
   </div>
 </div>
 <form class="card card-body mb-3" method="get">
+  {% if month %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}">{% endif %}
   <div class="row g-2">
     <div class="col-12 col-md">{{ form.q }}</div>
     <div class="col-6 col-md">{{ form.status }}</div>
@@ -18,11 +20,13 @@
     <div class="col-6 col-md">{{ form.manufacturer }}</div>
     <div class="col-6 col-md">{{ form.device_model }}</div>
     {% if form.owner %}<div class="col-6 col-md">{{ form.owner }}</div>{% endif %}
-    <div class="col-12 col-md-auto"><button class="btn btn-sm btn-dark w-100">Filter</button></div>
+    <div class="col-12 col-md-auto"><button class="btn btn-sm btn-dark w-100">{% icon "funnel" %} Filter</button></div>
   </div>
+  {% if month %}<div class="mt-2"><a class="filter-chip" href="?{{ without_month }}" title="Remove this filter">{% icon "calendar-event" %} Due in {{ month|date:"F Y" }} {% icon "x-lg" %}</a></div>{% endif %}
 </form>
-<div class="card">
-<div class="table-responsive">
+{% if rows %}
+<div class="card d-none d-md-block">
+<div class="table-scroll">
 <table class="table table-hover table-sm mb-0">
   <thead class="app-thead"><tr>
     <th>Asset ID</th><th>Name</th><th>Brand / model</th><th>Owner</th><th>Status</th><th>Location</th>
@@ -43,11 +47,25 @@
     <td class="nowrap">{{ d.next_calibration_date|default:"—" }}</td>
     <td class="nowrap">{% state_badge r.state %} <span class="small text-muted">{% if r.state != 'inactive' %}{{ r.days|days_text }}{% endif %}</span></td>
   </tr>
-  {% endwith %}{% empty %}
-  <tr><td colspan="13" class="text-muted p-3">No devices match.</td></tr>
-  {% endfor %}
+  {% endwith %}{% endfor %}
   </tbody>
 </table>
 </div></div>
+<div class="d-md-none">{% include "calibration/_device_cards.html" with items=rows %}</div>
 {% if not extra_fields %}<p class="small text-muted mt-2">Tip: filter by a manufacturer or model to see its custom columns.</p>{% endif %}
+{% else %}
+<div class="card">
+  {% if has_devices %}
+    {% url 'device_list' as list_url %}
+    {% include "calibration/_empty.html" with icon="search" title="No devices match these filters" text="Try a different search or remove some filters." action_url=list_url action_label="Clear filters" action_icon="x-lg" %}
+  {% else %}
+    {% url 'device_create' as create_url %}{% url 'import_upload' as import_url %}
+    {% if user.can_edit_all %}
+    {% include "calibration/_empty.html" with icon="cpu" title="No devices yet" text="Add your first device, or import a list from Excel." action_url=create_url action_label="Add device" action_icon="plus-lg" action2_url=import_url action2_label="Import" %}
+    {% else %}
+    {% include "calibration/_empty.html" with icon="cpu" title="No devices yet" text="Add your first device to start tracking its calibrations." action_url=create_url action_label="Add device" action_icon="plus-lg" %}
+    {% endif %}
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

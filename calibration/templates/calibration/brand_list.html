@@ -1,27 +1,29 @@
 {% extends "calibration/base.html" %}
+{% load calibration_tags %}
 {% block title %}Brands &amp; models{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item active">Brands &amp; models</li>{% endblock %}
 {% block content %}
-<h3 class="mb-3">Brands &amp; models</h3>
+<div class="page-header"><h3>Brands &amp; models</h3></div>
 <div class="row g-3 mb-3">
   <div class="col-md-5"><div class="card"><div class="card-body">
-    <h6>Add manufacturer</h6>
+    <h6>{% icon "building-add" %} Add manufacturer</h6>
     <form method="post" action="{% url 'brand_create' %}" class="d-flex gap-2">{% csrf_token %}
-      {{ brand_form.name }}<button class="btn btn-primary">Add</button></form>
+      {{ brand_form.name }}<button class="btn btn-primary">{% icon "plus-lg" %} Add</button></form>
   </div></div></div>
   <div class="col-md-7"><div class="card"><div class="card-body">
-    <h6>Add model</h6>
+    <h6>{% icon "box" %} Add model</h6>
     <form method="post" action="{% url 'model_create' %}" class="d-flex flex-wrap flex-sm-nowrap gap-2">{% csrf_token %}
-      {{ model_form.manufacturer }}{{ model_form.name }}<button class="btn btn-primary">Add</button></form>
+      {{ model_form.manufacturer }}{{ model_form.name }}<button class="btn btn-primary">{% icon "plus-lg" %} Add</button></form>
   </div></div></div>
 </div>
 <div class="card"><div class="table-responsive"><table class="table mb-0">
-  <thead class="app-thead"><tr><th>Manufacturer</th><th>Devices</th><th>Models</th><th></th></tr></thead>
+  <thead class="app-thead"><tr><th>Manufacturer</th><th class="text-end">Devices</th><th>Models</th><th></th></tr></thead>
   <tbody>
   {% for b in brands %}
   <tr>
     <td class="fw-semibold"><a href="{% url 'brand_detail' b.pk %}">{{ b.name }}</a>
       {% if b.interval_months %}<div class="small text-muted fw-normal">{{ b.interval_months }} months</div>{% endif %}</td>
-    <td><a href="{% url 'device_list' %}?manufacturer={{ b.pk }}">{{ b.device_count }}</a></td>
+    <td class="text-end"><a href="{% url 'device_list' %}?manufacturer={{ b.pk }}">{{ b.device_count }}</a></td>
     <td>
       {% for m in b.models.all %}
       <div class="d-flex justify-content-between align-items-center border-bottom py-1 gap-2">
@@ -41,7 +43,7 @@
       {% else %}<form class="d-inline" method="post" action="{% url 'brand_delete' b.pk %}">{% csrf_token %}<button class="btn btn-link btn-sm p-0 text-danger align-baseline" data-confirm="Delete {{ b.name }} and its unused models?">delete</button></form>{% endif %}
     </td>
   </tr>
-  {% empty %}<tr><td colspan="4" class="text-muted">No manufacturers yet. Add them here or with the + button on the device form.</td></tr>
+  {% empty %}<tr><td colspan="4">{% include "calibration/_empty.html" with icon="tags" title="No manufacturers yet" text="Add them above, or with the + button on the device form. Importing a device list also creates them." %}</td></tr>
   {% endfor %}
   </tbody>
 </table></div></div>

@@ -1,5 +1,6 @@
 {% extends "calibration/base.html" %}
 {% block title %}{% if which == "admin" %}Admin manual{% else %}User manual{% endif %}{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item"><a href="{% url 'help' %}">Help</a></li><li class="breadcrumb-item active">{% if which == "admin" %}Admin manual{% else %}User manual{% endif %}</li>{% endblock %}
 {% block content %}
 {% if user.can_edit_all %}
 <ul class="nav nav-tabs mb-3">

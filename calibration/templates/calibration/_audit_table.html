@@ -1,6 +1,6 @@
-<div class="table-responsive">
+{% if entries %}<div class="{% if scroll %}table-scroll{% else %}table-responsive{% endif %}">
 <table class="table table-sm mb-0">
-  <thead><tr><th>When</th><th>Who</th><th>Action</th>{% if not hide_object %}<th>Object</th>{% endif %}<th>Changes</th></tr></thead>
+  <thead class="app-thead"><tr><th>When</th><th>Who</th><th>Action</th>{% if not hide_object %}<th>Object</th>{% endif %}<th>Changes</th></tr></thead>
   <tbody>
   {% for e in entries %}
   <tr>
@@ -10,8 +10,8 @@
     {% if not hide_object %}<td>{{ e.object_type }}: {% if e.device %}<a href="{% url 'device_detail' e.device_id %}">{{ e.object_repr }}</a>{% else %}{{ e.object_repr }}{% endif %}</td>{% endif %}
     <td>{% if e.changes %}<ul class="audit-changes">{% for k, v in e.changes.items %}<li><b>{{ k }}</b>: {% if v.0 is not None and v.0 != "" %}<span class="text-muted">{{ v.0 }}</span> → {% endif %}{{ v.1|default_if_none:"(removed)" }}</li>{% endfor %}</ul>{% endif %}</td>
   </tr>
-  {% empty %}<tr><td colspan="5" class="text-muted">No entries.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+{% else %}{% include "calibration/_empty.html" with icon="journal" title="No changes recorded" %}{% endif %}

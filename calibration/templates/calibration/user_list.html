@@ -1,12 +1,14 @@
 {% extends "calibration/base.html" %}
+{% load calibration_tags %}
 {% block title %}Users{% endblock %}
+{% block breadcrumbs %}<li class="breadcrumb-item active">Users</li>{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="mb-0">Users</h3>
-  <a class="btn btn-primary" href="{% url 'user_create' %}">+ New user</a>
+<div class="page-header">
+  <h3>Users <span class="text-muted fs-5 num">({{ users|length }})</span></h3>
+  <div class="page-actions"><a class="btn btn-primary" href="{% url 'user_create' %}">{% icon "person-plus" %} New user</a></div>
 </div>
-<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="app-thead"><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Emails</th><th>Devices</th><th>Last login</th><th></th></tr></thead>
+<div class="card"><div class="table-scroll"><table class="table table-hover mb-0">
+  <thead class="app-thead"><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Emails</th><th class="text-end">Devices</th><th>Last login</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
   <tr class="{% if not u.is_active %}text-muted{% endif %}">
@@ -14,9 +16,9 @@
     <td>{{ u.get_full_name }}</td><td>{{ u.email }}</td>
     <td>{% if u.is_superuser %}Administrator (superuser){% else %}{{ u.get_role_display }}{% endif %}</td>
     <td>{{ u.email_notifications|yesno:"On,Off" }}</td>
-    <td><a href="{% url 'device_list' %}?owner={{ u.pk }}">{{ u.device_count }}</a></td>
+    <td class="text-end"><a href="{% url 'device_list' %}?owner={{ u.pk }}">{{ u.device_count }}</a></td>
     <td class="small">{{ u.last_login|default:"never" }}</td>
-    <td class="nowrap"><a href="{% url 'user_edit' u.pk %}">edit</a> · <a href="{% url 'user_password' u.pk %}">set password</a></td>
+    <td class="nowrap"><a href="{% url 'user_edit' u.pk %}">{% icon "pencil" %} edit</a> · <a href="{% url 'user_password' u.pk %}">{% icon "key" %} set password</a></td>
   </tr>
   {% endfor %}
   </tbody>
