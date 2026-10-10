@@ -122,6 +122,10 @@ class DeviceForm(BootstrapMixin, forms.ModelForm):
         if device_model and manufacturer and device_model.manufacturer_id != manufacturer.pk:
             device_model = None
         self.field_owners = [o for o in (manufacturer, device_model) if o]
+        months, source = Device.default_interval(manufacturer, device_model)
+        override = self.fields["interval_override_months"]
+        override.note = f"{'' if source == 'default' else source.capitalize() + ' '}default: {months} months".capitalize()
+        override.widget.attrs["placeholder"] = f"{months} (inherited)"
         self.custom_fields = []
         if self.field_owners:
             existing = {}

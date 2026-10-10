@@ -521,6 +521,22 @@ class LookupFieldTests(Fixture):
         r = self.client.get(reverse("device_list") + f"?device_model={self.model.pk}")
         self.assertContains(r, "MM-1")
 
+    def test_override_field_shows_inherited_interval(self):
+        self.client.force_login(self.editor)
+        url = reverse("device_create")
+        self.assertContains(self.client.get(url), "Default: 12 months")
+        self.brand.interval_months = 24
+        self.brand.save()
+        self.assertContains(self.client.get(url + f"?manufacturer={self.brand.pk}"), "Manufacturer default: 24 months")
+        self.model.interval_months = 6
+        self.model.save()
+        r = self.client.post(reverse("device_edit", args=[self.dev.pk]), {
+            "asset_tag": "MM-1", "name": "x", "owner": self.owner.pk, "status": "active",
+            "manufacturer": self.brand.pk, "device_model": self.model.pk, "_reload": "1",
+        })
+        self.assertContains(r, "Model default: 6 months")
+        self.assertContains(r, 'placeholder="6 (inherited)"')
+
     def test_field_management_on_model_page(self):
         self.client.force_login(self.owner)
         url = reverse("model_field_create", args=[self.model.pk])

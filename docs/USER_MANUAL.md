@@ -95,7 +95,7 @@ If you may edit the device, you see the buttons **Record calibration**, **Edit**
   - If the one you need is missing, click **+** next to the list and type the name. A model is always added under the selected manufacturer.
   - Choosing a model first fills in its manufacturer automatically.
 - **Serial number**, **Location**, **Notes**: free text.
-- **Interval override (months)**: fill it in only if *this* device needs a different interval from its model or manufacturer. Leave it empty in most cases.
+- **Interval override (months)**: the grey badge next to it shows the interval the device gets without an override, e.g. *Model default: 6 months*. It updates when you change the manufacturer or model. Fill the field in only if *this* device needs a different interval. Leave it empty in most cases.
 - **Last calibration date** (only when creating a device): if the device was calibrated before you started using Calibrator, enter that date. It becomes the first history entry and the next due date is calculated from it.
 
 **Manufacturer & model fields**

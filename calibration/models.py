@@ -238,13 +238,25 @@ class Device(models.Model):
             elif self.device_model.manufacturer_id != self.manufacturer_id:
                 raise ValidationError({"device_model": "This model belongs to a different manufacturer."})
 
-    def _inherited(self, attr):
-        """(value, source) from the model, else the manufacturer, else None."""
-        for source, obj in (("model", self.device_model), ("manufacturer", self.manufacturer)):
+    @staticmethod
+    def inherited_value(attr, manufacturer=None, device_model=None):
+        """(value, source) from the model, else the manufacturer, else (None, None)."""
+        for source, obj in (("model", device_model), ("manufacturer", manufacturer)):
             value = getattr(obj, attr, None) if obj else None
             if value:
                 return value, source
         return None, None
+
+    def _inherited(self, attr):
+        return self.inherited_value(attr, self.manufacturer, self.device_model)
+
+    @staticmethod
+    def default_interval(manufacturer=None, device_model=None):
+        """(months, source) a device with this manufacturer/model gets without an override."""
+        months, source = Device.inherited_value("interval_months", manufacturer, device_model)
+        if months:
+            return months, source
+        return SiteSettings.load().default_interval_months, "default"
 
     @property
     def interval_source(self):
