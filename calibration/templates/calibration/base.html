@@ -1,15 +1,23 @@
 {% load static %}<!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="{% if theme_mode == 'dark' %}dark{% else %}light{% endif %}" data-theme-mode="{{ theme_mode }}" data-accent="{{ theme_accent }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if theme_mode == "auto" %}<script>
+    (function () {
+      const q = window.matchMedia("(prefers-color-scheme: dark)");
+      const apply = () => document.documentElement.setAttribute("data-bs-theme", q.matches ? "dark" : "light");
+      apply();
+      q.addEventListener("change", apply);
+    })();
+  </script>{% endif %}
   <title>{% block title %}{% endblock %} · Calibrator</title>
   <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 <body>
 {% if user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark app-navbar mb-4">
   <div class="container-fluid">
     <a class="navbar-brand" href="{% url 'dashboard' %}">Calibrator</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
@@ -34,6 +42,18 @@
         {% endif %}
       </ul>
       <ul class="navbar-nav">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" title="Color mode" aria-label="Color mode">{% if theme_mode == "dark" %}☾{% elif theme_mode == "light" %}☀{% else %}◐{% endif %}</a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            {% for value, icon, label in theme_choices %}
+            <li><form method="post" action="{% url 'set_theme' %}">{% csrf_token %}
+              <input type="hidden" name="mode" value="{{ value }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="dropdown-item{% if theme_mode == value %} active{% endif %}"><span class="theme-icon">{{ icon }}</span> {{ label }}</button></form></li>
+            {% endfor %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'profile' %}#appearance">Accent colors…</a></li>
+          </ul>
+        </li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">{{ user }}</a>
           <ul class="dropdown-menu dropdown-menu-end">

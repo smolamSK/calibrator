@@ -8,7 +8,7 @@ STATE_BADGES = {
     "due_soon": ("warning text-dark", "Due soon"),
     "ok": ("success", "OK"),
     "unknown": ("secondary", "Never calibrated"),
-    "inactive": ("light text-dark border", "Inactive"),
+    "inactive": ("body-tertiary text-body border", "Inactive"),
 }
 
 STATUS_BADGES = {

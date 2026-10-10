@@ -61,7 +61,7 @@ When you filter by a manufacturer or model, the list can show extra columns for 
 | <span class="badge bg-warning text-dark">Due soon</span> | due within the "due soon" period |
 | <span class="badge bg-success">OK</span> | not due for a while |
 | <span class="badge bg-secondary">Never calibrated</span> | no calibration recorded yet |
-| <span class="badge bg-light text-dark border">Inactive</span> | Retired or Out of service; these devices get no reminders |
+| <span class="badge bg-body-tertiary text-body border">Inactive</span> | Retired or Out of service; these devices get no reminders |
 
 ## The device page
 
@@ -154,6 +154,12 @@ To stop receiving reminders, open **Profile & calendar** and untick **Email noti
 - Viewers and above get two links: all devices, or **Only devices you own**.
 - The calendar refreshes by itself every few hours.
 - Anyone with the link can see the events. If it leaks, click **Create new link**. The old link stops working.
+
+## Appearance
+
+- **Light / dark mode**: click the ◐ / ☀ / ☾ symbol in the top menu and choose **Light**, **Dark** or **Auto (follow system)**. Auto switches with your computer's or phone's dark-mode setting.
+- **Accent color**: **Profile & calendar → Appearance** lets you pick Blue, Indigo, Teal, Green, Orange or Graphite. The color is used for the top bar, buttons and links.
+- **Site default** uses the colors chosen by the administrator. Your choice is saved on your account, so it applies on every computer you use.
 
 ## Questions and problems
 

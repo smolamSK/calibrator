@@ -14,6 +14,14 @@ def new_ics_token():
     return secrets.token_urlsafe(32)
 
 
+THEME_MODES = [("auto", "Auto (follow system)"), ("light", "Light"), ("dark", "Dark")]
+ACCENTS = [
+    ("blue", "Blue"), ("indigo", "Indigo"), ("teal", "Teal"),
+    ("green", "Green"), ("orange", "Orange"), ("graphite", "Graphite"),
+]
+SITE_DEFAULT = [("", "Site default")]
+
+
 class User(AbstractUser):
     ROLE_OWNER = "owner"
     ROLE_VIEWER_ALL = "viewer_all"
@@ -31,6 +39,8 @@ class User(AbstractUser):
         default=True, help_text="Receive calibration reminder emails."
     )
     ics_token = models.CharField(max_length=64, unique=True, default=new_ics_token)
+    theme_mode = models.CharField("Mode", max_length=10, blank=True, choices=SITE_DEFAULT + THEME_MODES)
+    theme_accent = models.CharField("Accent color", max_length=10, blank=True, choices=SITE_DEFAULT + ACCENTS)
 
     class Meta:
         ordering = ["last_name", "first_name", "username"]
@@ -485,6 +495,11 @@ class SiteSettings(models.Model):
         help_text="Days before the due date when reminders are sent, comma separated (e.g. 60,14,0). "
         "Used when neither the model nor the manufacturer sets them.",
     )
+    theme_mode = models.CharField(
+        "Default color mode", max_length=10, choices=THEME_MODES, default="auto",
+        help_text="Users can choose their own in Profile.",
+    )
+    theme_accent = models.CharField("Default accent color", max_length=10, choices=ACCENTS, default="blue")
     smtp_host = models.CharField(max_length=200, blank=True)
     smtp_port = models.PositiveIntegerField(default=587)
     smtp_username = models.CharField(max_length=200, blank=True)

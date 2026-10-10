@@ -6,7 +6,7 @@
 </div>
 {% else %}
 <div class="mb-3">
-  <label class="form-label{% if field.field.required %} required{% endif %}" for="{{ field.id_for_label }}">{{ field.label }}</label>{% if field.field.note %} <span class="badge bg-light text-dark border fw-normal ms-1">{{ field.field.note }}</span>{% endif %}
+  <label class="form-label{% if field.field.required %} required{% endif %}" for="{{ field.id_for_label }}">{{ field.label }}</label>{% if field.field.note %} <span class="badge bg-body-tertiary text-body border fw-normal ms-1">{{ field.field.note }}</span>{% endif %}
   {{ field }}
   {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
   {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}

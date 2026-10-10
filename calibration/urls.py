@@ -42,5 +42,6 @@ urlpatterns = [
     path("help/", views.help_page, name="help"),
     path("help/admin/", views.help_page, {"which": "admin"}, name="help_admin"),
     path("profile/", views.profile, name="profile"),
+    path("profile/theme/", views.set_theme, name="set_theme"),
     path("ics/<str:token>.ics", views.ics_feed, name="ics_feed"),
 ]

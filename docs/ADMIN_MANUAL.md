@@ -134,6 +134,7 @@ For updates, the required columns may be empty. Empty cells don't overwrite exis
 - **Notifications enabled**: the master switch for all reminder emails.
 - **Due soon days**: how many days before the due date a device counts as *Due soon*.
 - **Overdue repeat days**: how often overdue reminders are repeated.
+- **Default color mode** and **Default accent color**: the look for everyone who hasn't chosen their own in **Profile & calendar → Appearance**, and for the login page.
 - **Default calibration interval (months)** and **Default reminder days**: used when neither the model nor the manufacturer sets its own. Changing the default interval recalculates the affected due dates.
 
 **Outgoing email (SMTP)**: host, port, security, username, password and **From address**. Click **Send test email** after saving, and the test goes to your own address. Some examples:

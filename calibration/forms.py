@@ -27,7 +27,7 @@ class BootstrapMixin:
     def apply_bootstrap(self):
         for field in self.fields.values():
             w = field.widget
-            if isinstance(w, (forms.CheckboxInput,)):
+            if isinstance(w, (forms.CheckboxInput, forms.RadioSelect)):
                 css = "form-check-input"
             elif isinstance(w, (forms.Select, forms.SelectMultiple)):
                 css = "form-select"
@@ -368,12 +368,19 @@ class UserEditForm(BootstrapMixin, forms.ModelForm):
 class ProfileForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "email_notifications"]
+        fields = ["first_name", "last_name", "email", "email_notifications", "theme_mode", "theme_accent"]
+        widgets = {"theme_mode": forms.RadioSelect, "theme_accent": forms.RadioSelect}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].required = True
         self.apply_bootstrap()
+
+    def appearance_fields(self):
+        return [self["theme_mode"], self["theme_accent"]]
+
+    def standard_fields(self):
+        return [self[n] for n in self.fields if not n.startswith("theme_")]
 
 
 class SiteSettingsForm(BootstrapMixin, forms.ModelForm):
@@ -389,7 +396,7 @@ class SiteSettingsForm(BootstrapMixin, forms.ModelForm):
         model = SiteSettings
         fields = [
             "site_name", "base_url", "notifications_enabled", "due_soon_days", "overdue_repeat_days",
-            "default_interval_months", "default_reminder_days",
+            "default_interval_months", "default_reminder_days", "theme_mode", "theme_accent",
             "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password", "from_email",
         ]
 

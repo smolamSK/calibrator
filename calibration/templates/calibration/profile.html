@@ -6,7 +6,31 @@
     <h4>Profile</h4>
     <p class="text-muted">{{ user.username }} · {% if user.is_superuser %}Administrator (superuser){% else %}{{ user.get_role_display }}{% endif %}</p>
     <form method="post">{% csrf_token %}
-      {% include "calibration/_form.html" %}
+      {% for e in form.non_field_errors %}<div class="alert alert-danger">{{ e }}</div>{% endfor %}
+      {% for field in form.standard_fields %}{% include "calibration/_field.html" %}{% endfor %}
+      <h5 class="mt-4" id="appearance">Appearance</h5>
+      <div class="mb-3">
+        <div class="form-label">Mode</div>
+        <div class="btn-group flex-wrap" role="group">
+          {% for radio in form.theme_mode %}
+          <input type="radio" class="btn-check" name="{{ radio.data.name }}" id="{{ radio.id_for_label }}" value="{{ radio.data.value }}"{% if radio.data.selected %} checked{% endif %}>
+          <label class="btn btn-outline-primary btn-sm" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="form-label">Accent color</div>
+        <div class="d-flex flex-wrap gap-3">
+          {% for radio in form.theme_accent %}
+          <div class="text-center">
+            <input type="radio" class="btn-check" name="{{ radio.data.name }}" id="{{ radio.id_for_label }}" value="{{ radio.data.value }}"{% if radio.data.selected %} checked{% endif %}>
+            <label class="swatch" for="{{ radio.id_for_label }}" data-swatch="{{ radio.data.value|default:'default' }}" title="{{ radio.choice_label }}"></label>
+            <div class="small text-muted">{{ radio.choice_label }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="form-text">“Site default” follows the administrator’s choice in Settings.</div>
+      </div>
       <button class="btn btn-primary">Save</button>
       <a class="btn btn-outline-secondary" href="{% url 'password_change' %}">Change password</a>
     </form>

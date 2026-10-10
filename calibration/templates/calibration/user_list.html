@@ -6,7 +6,7 @@
   <a class="btn btn-primary" href="{% url 'user_create' %}">+ New user</a>
 </div>
 <div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead class="table-light"><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Emails</th><th>Devices</th><th>Last login</th><th></th></tr></thead>
+  <thead class="app-thead"><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Emails</th><th>Devices</th><th>Last login</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
   <tr class="{% if not u.is_active %}text-muted{% endif %}">

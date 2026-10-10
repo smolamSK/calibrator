@@ -585,3 +585,54 @@ class HelpTests(Fixture):
 
     def test_help_requires_login(self):
         self.assertEqual(self.client.get(reverse("help")).status_code, 302)
+
+
+class ThemeTests(Fixture):
+    def test_site_default_user_override_and_login_page(self):
+        s = SiteSettings.load()
+        s.theme_mode, s.theme_accent = "dark", "teal"
+        s.save()
+        r = self.client.get(reverse("login"))
+        self.assertContains(r, 'data-bs-theme="dark"')
+        self.assertContains(r, 'data-accent="teal"')
+        self.owner.theme_mode, self.owner.theme_accent = "light", "orange"
+        self.owner.save()
+        self.client.force_login(self.owner)
+        r = self.client.get(reverse("dashboard"))
+        self.assertContains(r, 'data-bs-theme="light"')
+        self.assertContains(r, 'data-accent="orange"')
+        self.client.force_login(self.viewer)  # blank = site default
+        self.assertContains(self.client.get(reverse("dashboard")), 'data-accent="teal"')
+
+    def test_auto_mode_adds_system_script(self):
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(reverse("dashboard")), "prefers-color-scheme")
+        self.owner.theme_mode = "dark"
+        self.owner.save()
+        self.assertNotContains(self.client.get(reverse("dashboard")), "prefers-color-scheme")
+
+    def test_navbar_switch(self):
+        self.client.force_login(self.owner)
+        url = reverse("set_theme")
+        self.assertEqual(self.client.get(url).status_code, 405)
+        r = self.client.post(url, {"mode": "dark", "next": reverse("device_list")})
+        self.assertRedirects(r, reverse("device_list"), fetch_redirect_response=False)
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.theme_mode, "dark")
+        self.client.post(url, {"mode": "neon"})
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.theme_mode, "dark")
+        r = self.client.post(url, {"mode": "light", "next": "https://evil.example.com/"})
+        self.assertRedirects(r, reverse("dashboard"), fetch_redirect_response=False)
+
+    def test_profile_saves_appearance(self):
+        self.client.force_login(self.owner)
+        r = self.client.get(reverse("profile"))
+        self.assertContains(r, 'data-swatch="indigo"')
+        r = self.client.post(reverse("profile"), {
+            "first_name": "", "last_name": "", "email": "owner@example.com", "email_notifications": "on",
+            "theme_mode": "", "theme_accent": "indigo",
+        })
+        self.assertEqual(r.status_code, 302)
+        self.owner.refresh_from_db()
+        self.assertEqual((self.owner.theme_mode, self.owner.theme_accent), ("", "indigo"))

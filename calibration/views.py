@@ -16,6 +16,7 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from . import importer
@@ -45,6 +46,7 @@ from .models import (
     DeviceModel,
     FieldDefinition,
     Manufacturer,
+    THEME_MODES,
     SiteSettings,
     User,
     new_ics_token,
@@ -923,6 +925,20 @@ def profile(request):
     if base:
         ics_url = base + reverse("ics_feed", args=[request.user.ics_token])
     return render(request, "calibration/profile.html", {"form": form, "ics_url": ics_url})
+
+
+@login_required
+@require_POST
+def set_theme(request):
+    """Navbar light/dark/auto switch."""
+    mode = request.POST.get("mode", "")
+    if mode in dict(THEME_MODES):
+        request.user.theme_mode = mode
+        request.user.save(update_fields=["theme_mode"])
+    nxt = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(nxt, {request.get_host()}, require_https=request.is_secure()):
+        nxt = reverse("dashboard")
+    return redirect(nxt)
 
 
 def ics_feed(request, token):

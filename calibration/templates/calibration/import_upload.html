@@ -21,7 +21,7 @@
       <li>Columns named exactly like a custom field of the row’s manufacturer or model (e.g. “Range”) fill that field. Only manufacturers and models that already exist have fields.</li>
     </ul>
     <p class="mb-1"><b>Recognised columns:</b></p>
-    <p>{% for key, label, required, aliases in targets %}<span class="badge {% if required %}bg-dark{% else %}bg-light text-dark border{% endif %} me-1">{{ label }}</span>{% endfor %}</p>
+    <p>{% for key, label, required, aliases in targets %}<span class="badge {% if required %}bg-dark{% else %}bg-body-tertiary text-body border{% endif %} me-1">{{ label }}</span>{% endfor %}</p>
     {% if brands %}<p class="mb-1"><b>Custom field columns per manufacturer / model:</b></p>
     <ul>{% for b in brands %}{% if b.fields.all %}<li>{{ b.name }}: {% for f in b.fields.all %}{% if f.field_type != 'file' %}“{{ f.name }}” {% endif %}{% endfor %}</li>{% endif %}
       {% for m in b.models.all %}{% if m.fields.all %}<li>{{ b.name }} {{ m.name }}: {% for f in m.fields.all %}{% if f.field_type != 'file' %}“{{ f.name }}” {% endif %}{% endfor %}</li>{% endif %}{% endfor %}

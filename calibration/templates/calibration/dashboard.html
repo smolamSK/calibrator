@@ -19,18 +19,18 @@
 
 <div class="row g-3">
   <div class="col-xl-6">
-    <div class="card mb-3"><div class="card-header bg-danger text-white">Overdue</div>
+    <div class="card mb-3"><div class="card-header text-bg-danger">Overdue</div>
       {% include "calibration/_device_table.html" with devices=overdue %}</div>
     {% if never %}
-    <div class="card mb-3"><div class="card-header bg-secondary text-white">Never calibrated (no history)</div>
+    <div class="card mb-3"><div class="card-header text-bg-secondary">Never calibrated (no history)</div>
       {% include "calibration/_device_table.html" with devices=never %}</div>
     {% endif %}
   </div>
   <div class="col-xl-6">
-    <div class="card mb-3"><div class="card-header bg-warning">Due soon</div>
+    <div class="card mb-3"><div class="card-header text-bg-warning">Due soon</div>
       {% include "calibration/_device_table.html" with devices=due_soon %}</div>
     {% if at_calibration %}
-    <div class="card mb-3"><div class="card-header bg-info">Currently at calibration</div>
+    <div class="card mb-3"><div class="card-header text-bg-info">Currently at calibration</div>
       {% include "calibration/_device_table.html" with devices=at_calibration %}</div>
     {% endif %}
   </div>
