@@ -4,6 +4,12 @@ A web app that tracks device calibrations: owners, full calibration history and 
 
 Django + SQLite. Data lives in `data/` (database and uploaded files). Configuration lives in `.env`.
 
+## Documentation
+- [User manual](docs/USER_MANUAL.md): for everyone who uses the app.
+- [Admin manual](docs/ADMIN_MANUAL.md): for Editors and Administrators, including server administration.
+
+Both are also shown in the app under **Help** (menu under your name). The admin manual is visible to Editors and Administrators only.
+
 ## Roles
 | Role | Devices visible | Can edit | Extra |
 |---|---|---|---|

@@ -39,6 +39,8 @@ urlpatterns = [
     path("manage/audit/", views.audit_log, name="audit_log"),
     path("manage/import/", views.import_upload, name="import_upload"),
     path("manage/import/preview/", views.import_preview, name="import_preview"),
+    path("help/", views.help_page, name="help"),
+    path("help/admin/", views.help_page, {"which": "admin"}, name="help_admin"),
     path("profile/", views.profile, name="profile"),
     path("ics/<str:token>.ics", views.ics_feed, name="ics_feed"),
 ]

@@ -547,3 +547,25 @@ class LookupFieldTests(Fixture):
         r = self.client.get(reverse("device_list") + f"?manufacturer={self.brand.pk}")
         self.assertEqual([f.name for f in r.context["extra_fields"]], ["Accuracy class"])
         self.assertEqual(self.client.get(reverse("device_list")).context["extra_fields"], [])
+
+
+class HelpTests(Fixture):
+    def test_user_manual_for_everyone(self):
+        for u in (self.owner, self.viewer, self.editor, self.admin):
+            self.client.force_login(u)
+            r = self.client.get(reverse("help"))
+            self.assertContains(r, 'id="recording-a-calibration"')
+            self.assertContains(r, 'href="#recording-a-calibration"')  # table of contents
+            self.assertContains(r, "<table>")
+            self.assertContains(r, reverse("help"))  # navbar link
+            self.assertEqual(reverse("help_admin") in r.content.decode(), u.can_edit_all, u)
+
+    def test_admin_manual_for_editors_and_admins_only(self):
+        for u, status in ((self.owner, 403), (self.viewer, 403), (self.editor, 200), (self.admin, 200)):
+            self.client.force_login(u)
+            r = self.client.get(reverse("help_admin"))
+            self.assertEqual(r.status_code, status, u)
+        self.assertContains(r, 'id="custom-fields"')
+
+    def test_help_requires_login(self):
+        self.assertEqual(self.client.get(reverse("help")).status_code, 302)

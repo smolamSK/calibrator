@@ -3,6 +3,9 @@ import io
 import os
 from datetime import timedelta
 
+import markdown
+
+from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import SetPasswordForm
@@ -877,6 +880,27 @@ def import_preview(request):
         "results": results,
         "counts": counts,
     })
+
+
+# --------------------------------------------------------------------- help
+
+MANUALS = {"user": "USER_MANUAL.md", "admin": "ADMIN_MANUAL.md"}
+
+
+def _render_manual(name):
+    text = (django_settings.BASE_DIR / "docs" / MANUALS[name]).read_text(encoding="utf-8")
+    md = markdown.Markdown(
+        extensions=["toc", "tables", "fenced_code", "sane_lists"], extension_configs={"toc": {"toc_depth": "2-3"}}
+    )
+    return md.convert(text), md.toc
+
+
+@login_required
+def help_page(request, which="user"):
+    if which == "admin" and not request.user.can_edit_all:
+        raise PermissionDenied
+    html, toc = _render_manual(which)
+    return render(request, "calibration/help.html", {"which": which, "manual": html, "toc": toc})
 
 
 # ---------------------------------------------------------- profile & ICS

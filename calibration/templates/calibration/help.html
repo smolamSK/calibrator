@@ -1,0 +1,23 @@
+{% extends "calibration/base.html" %}
+{% block title %}{% if which == "admin" %}Admin manual{% else %}User manual{% endif %}{% endblock %}
+{% block content %}
+{% if user.can_edit_all %}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link{% if which == 'user' %} active{% endif %}" href="{% url 'help' %}">User manual</a></li>
+  <li class="nav-item"><a class="nav-link{% if which == 'admin' %} active{% endif %}" href="{% url 'help_admin' %}">Admin manual</a></li>
+</ul>
+{% endif %}
+<div class="row g-4">
+  <div class="col-lg-3 d-none d-lg-block">
+    <nav class="help-toc card"><div class="card-body">
+      <div class="fw-semibold mb-2">Contents</div>
+      {{ toc|safe }}
+    </div></nav>
+  </div>
+  <div class="col-lg-9">
+    <div class="card"><div class="card-body manual">
+      {{ manual|safe }}
+    </div></div>
+  </div>
+</div>
+{% endblock %}
