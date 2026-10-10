@@ -5,7 +5,6 @@ from .models import (
     Attachment,
     AuditLog,
     CalibrationEvent,
-    Category,
     Device,
     DeviceFieldValue,
     DeviceModel,
@@ -27,12 +26,7 @@ class UserAdmin(BaseUserAdmin):
 class FieldDefinitionInline(admin.TabularInline):
     model = FieldDefinition
     extra = 0
-
-
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "default_interval_months", "reminder_days")
-    inlines = [FieldDefinitionInline]
+    fields = ("name", "field_type", "required", "show_in_list", "order", "help_text", "options")
 
 
 class FieldValueInline(admin.TabularInline):
@@ -43,9 +37,9 @@ class FieldValueInline(admin.TabularInline):
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
     list_display = (
-        "asset_tag", "name", "category", "manufacturer", "device_model", "owner", "status", "next_calibration_date"
+        "asset_tag", "name", "manufacturer", "device_model", "owner", "status", "next_calibration_date"
     )
-    list_filter = ("category", "status")
+    list_filter = ("status", "manufacturer")
     search_fields = ("asset_tag", "name", "serial_number", "manufacturer__name", "device_model__name")
     readonly_fields = ("last_calibration_date", "next_calibration_date")
     inlines = [FieldValueInline]
@@ -72,12 +66,22 @@ class AuditLogAdmin(admin.ModelAdmin):
 class DeviceModelInline(admin.TabularInline):
     model = DeviceModel
     extra = 0
+    fields = ("name", "interval_months", "reminder_days")
 
 
 @admin.register(Manufacturer)
 class ManufacturerAdmin(admin.ModelAdmin):
+    list_display = ("name", "interval_months", "reminder_days")
     search_fields = ("name",)
-    inlines = [DeviceModelInline]
+    inlines = [DeviceModelInline, FieldDefinitionInline]
+
+
+@admin.register(DeviceModel)
+class DeviceModelAdmin(admin.ModelAdmin):
+    list_display = ("name", "manufacturer", "interval_months", "reminder_days")
+    list_filter = ("manufacturer",)
+    search_fields = ("name", "manufacturer__name")
+    inlines = [FieldDefinitionInline]
 
 
 admin.site.register(Attachment)

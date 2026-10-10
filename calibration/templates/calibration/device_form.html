@@ -14,7 +14,7 @@
       {% endfor %}
     </div></div></div>
     <div class="col-lg-6"><div class="card"><div class="card-body">
-      <h5 class="card-title">{% if form.selected_category %}{{ form.selected_category }} fields{% else %}Category fields{% endif %}</h5>
+      <h5 class="card-title">{% if form.field_owners %}{{ form.field_owners|join:" " }} fields{% else %}Manufacturer &amp; model fields{% endif %}</h5>
       {% for fd, field, value, clear in form.custom_bound_fields %}
         {% include "calibration/_field.html" %}
         {% if fd.field_type == 'file' and value and value.value_file %}
@@ -22,7 +22,7 @@
           {% if clear %} · {{ clear }} <label for="{{ clear.id_for_label }}">remove</label>{% endif %}</div>
         {% endif %}
       {% empty %}
-        <p class="text-muted">{% if form.selected_category %}This category has no extra fields.{% else %}Choose a category to see its fields.{% endif %}</p>
+        <p class="text-muted">{% if form.field_owners %}No extra fields defined for this manufacturer/model.{% else %}Choose a manufacturer or model to see its fields.{% endif %}</p>
       {% endfor %}
     </div></div></div>
   </div>

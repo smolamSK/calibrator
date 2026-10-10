@@ -119,7 +119,7 @@ def reminder_kind(device, today, overdue_repeat_days=7):
     if days_left < 0:
         step = max(1, overdue_repeat_days)
         return f"overdue-{(-days_left - 1) // step}"
-    passed = [d for d in device.category.reminder_days_list if days_left <= d]
+    passed = [d for d in device.effective_reminder_days_list if days_left <= d]
     if not passed:
         return None
     return f"lead-{min(passed)}"
@@ -140,7 +140,7 @@ def collect_reminders(today=None):
     pending = defaultdict(list)
     devices = Device.objects.filter(
         status__in=Device.REMINDER_STATUSES, next_calibration_date__isnull=False
-    ).select_related("category", "owner")
+    ).select_related("owner", "manufacturer", "device_model")
     for device in devices:
         kind = reminder_kind(device, today, settings.overdue_repeat_days)
         if not kind:
@@ -177,8 +177,9 @@ def build_reminder_email(email, items, today, settings):
     base = settings.base_url.rstrip("/")
     lines = ["The following devices need calibration:", ""]
     for device, kind in items:
+        make = " ".join(str(x) for x in (device.manufacturer, device.device_model) if x)
         lines.append(
-            f"- {device.asset_tag} {device.name} ({device.category}) — "
+            f"- {device.asset_tag} {device.name}{f' ({make})' if make else ''} — "
             f"{_kind_label(kind, device, today)}, due {device.next_calibration_date:%d.%m.%Y}, "
             f"owner {device.owner}"
         )

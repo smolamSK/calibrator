@@ -1,4 +1,4 @@
-// Re-render device form when category changes so its custom fields appear.
+// Re-render device form when manufacturer/model changes so their custom fields appear.
 document.addEventListener("change", function (e) {
   if (e.target.matches("select[data-reload]")) {
     const form = e.target.form;
@@ -24,7 +24,7 @@ document.addEventListener("click", function (e) {
   navigator.clipboard.writeText(input.value).then(() => { el.textContent = "Copied"; });
 });
 
-// ---- Manufacturer / model dropdowns with "+" quick add (device form)
+// ---- Manufacturer / model dropdowns (device form, device list filter) with "+" quick add (device form)
 (function () {
   const brandSel = document.querySelector('select[data-lookup="manufacturer"]');
   const modelSel = document.querySelector('select[data-lookup="model"]');
@@ -34,7 +34,7 @@ document.addEventListener("click", function (e) {
     const brand = brandSel.value;
     for (const opt of modelSel.options) {
       if (!opt.value) continue;
-      const match = brand && opt.dataset.manufacturer === brand;
+      const match = !brand || opt.dataset.manufacturer === brand;
       opt.hidden = !match;
       opt.disabled = !match;
     }
@@ -50,6 +50,7 @@ document.addEventListener("click", function (e) {
   filterModels();
 
   const modalEl = document.getElementById("lookup-modal");
+  if (!modalEl) return;
   const form = document.getElementById("lookup-form");
   const nameInput = document.getElementById("lookup-name");
   const errorEl = document.getElementById("lookup-error");

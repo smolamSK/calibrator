@@ -71,31 +71,6 @@ def validate_day_list(value):
     parse_day_list(value)
 
 
-class Category(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-    default_interval_months = models.PositiveIntegerField(
-        default=12, help_text="Default calibration interval in months."
-    )
-    reminder_days = models.CharField(
-        max_length=100,
-        default="30,7,0",
-        validators=[validate_day_list],
-        help_text="Days before the due date when reminders are sent, comma separated (e.g. 60,14,0).",
-    )
-
-    class Meta:
-        ordering = ["name"]
-        verbose_name_plural = "categories"
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def reminder_days_list(self):
-        return parse_day_list(self.reminder_days)
-
-
 class FieldDefinition(models.Model):
     TEXT = "text"
     LONGTEXT = "longtext"
@@ -114,7 +89,12 @@ class FieldDefinition(models.Model):
         (FILE, "File"),
     ]
 
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="fields")
+    manufacturer = models.ForeignKey(
+        "Manufacturer", on_delete=models.CASCADE, null=True, blank=True, related_name="fields"
+    )
+    device_model = models.ForeignKey(
+        "DeviceModel", on_delete=models.CASCADE, null=True, blank=True, related_name="fields", verbose_name="model"
+    )
     name = models.CharField(max_length=100)
     field_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TEXT)
     required = models.BooleanField(default=False)
@@ -122,17 +102,34 @@ class FieldDefinition(models.Model):
     help_text = models.CharField(max_length=255, blank=True)
     options = models.TextField(blank=True, help_text="Dropdown only: one option per line.")
     show_in_list = models.BooleanField(
-        default=False, help_text="Show as a column in the device list when filtered by this category."
+        default=False, help_text="Show as a column in the device list when filtered by this manufacturer or model."
     )
 
     class Meta:
-        ordering = ["category", "order", "id"]
+        ordering = ["order", "id"]
         constraints = [
-            models.UniqueConstraint(fields=["category", "name"], name="unique_field_name_per_category")
+            models.CheckConstraint(
+                condition=models.Q(manufacturer__isnull=False, device_model__isnull=True)
+                | models.Q(manufacturer__isnull=True, device_model__isnull=False),
+                name="field_has_one_owner",
+            ),
+            models.UniqueConstraint(
+                fields=["manufacturer", "name"], condition=models.Q(manufacturer__isnull=False),
+                name="unique_field_name_per_manufacturer",
+            ),
+            models.UniqueConstraint(
+                fields=["device_model", "name"], condition=models.Q(device_model__isnull=False),
+                name="unique_field_name_per_model",
+            ),
         ]
 
     def __str__(self):
-        return f"{self.category}: {self.name}"
+        return f"{self.owner}: {self.name}"
+
+    @property
+    def owner(self):
+        """The manufacturer or model this field belongs to."""
+        return self.device_model if self.device_model_id else self.manufacturer
 
     @property
     def options_list(self):
@@ -145,6 +142,15 @@ class FieldDefinition(models.Model):
 
 class Manufacturer(models.Model):
     name = models.CharField(max_length=100)
+    interval_months = models.PositiveIntegerField(
+        "Calibration interval (months)", null=True, blank=True, help_text="Leave empty to use the default from Settings."
+    )
+    reminder_days = models.CharField(
+        max_length=100,
+        blank=True,
+        validators=[validate_day_list],
+        help_text="Days before the due date when reminders are sent, comma separated (e.g. 60,14,0). Leave empty to use the default from Settings.",
+    )
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -159,6 +165,15 @@ class Manufacturer(models.Model):
 class DeviceModel(models.Model):
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.PROTECT, related_name="models")
     name = models.CharField(max_length=100)
+    interval_months = models.PositiveIntegerField(
+        "Calibration interval (months)", null=True, blank=True, help_text="Leave empty to use the manufacturer's interval."
+    )
+    reminder_days = models.CharField(
+        max_length=100,
+        blank=True,
+        validators=[validate_day_list],
+        help_text="Days before the due date when reminders are sent, comma separated (e.g. 60,14,0). Leave empty to use the manufacturer's reminder days.",
+    )
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -188,7 +203,6 @@ class Device(models.Model):
 
     asset_tag = models.CharField("Asset ID", max_length=50, unique=True)
     name = models.CharField(max_length=200)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="devices")
     owner = models.ForeignKey(User, on_delete=models.PROTECT, related_name="devices")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     manufacturer = models.ForeignKey(
@@ -203,7 +217,7 @@ class Device(models.Model):
         "Interval override (months)",
         null=True,
         blank=True,
-        help_text="Leave empty to use the category's default interval.",
+        help_text="Leave empty to use the model's, manufacturer's or default interval.",
     )
     last_calibration_date = models.DateField(null=True, blank=True, editable=False)
     next_calibration_date = models.DateField(null=True, blank=True, editable=False)
@@ -224,11 +238,38 @@ class Device(models.Model):
             elif self.device_model.manufacturer_id != self.manufacturer_id:
                 raise ValidationError({"device_model": "This model belongs to a different manufacturer."})
 
+    def _inherited(self, attr):
+        """(value, source) from the model, else the manufacturer, else None."""
+        for source, obj in (("model", self.device_model), ("manufacturer", self.manufacturer)):
+            value = getattr(obj, attr, None) if obj else None
+            if value:
+                return value, source
+        return None, None
+
+    @property
+    def interval_source(self):
+        if self.interval_override_months:
+            return "device"
+        return self._inherited("interval_months")[1] or "default"
+
     @property
     def effective_interval_months(self):
         if self.interval_override_months:
             return self.interval_override_months
-        return self.category.default_interval_months
+        return self._inherited("interval_months")[0] or SiteSettings.load().default_interval_months
+
+    @property
+    def effective_reminder_days_list(self):
+        return parse_day_list(self._inherited("reminder_days")[0] or SiteSettings.load().default_reminder_days)
+
+    def field_definitions(self):
+        """Custom fields of the device's manufacturer followed by those of its model."""
+        fields = []
+        if self.manufacturer_id:
+            fields += list(self.manufacturer.fields.all())
+        if self.device_model_id:
+            fields += list(self.device_model.fields.all())
+        return fields
 
     def compute_next_date(self):
         if not self.last_calibration_date:
@@ -261,9 +302,9 @@ class Device(models.Model):
         return "ok"
 
     def custom_values(self):
-        """(FieldDefinition, DeviceFieldValue|None) pairs for the device's current category."""
+        """(FieldDefinition, DeviceFieldValue|None) pairs for the device's current manufacturer and model."""
         values = {v.field_id: v for v in self.field_values.all()}
-        return [(f, values.get(f.id)) for f in self.category.fields.all()]
+        return [(f, values.get(f.id)) for f in self.field_definitions()]
 
 
 def field_file_path(instance, filename):
@@ -419,6 +460,18 @@ class SiteSettings(models.Model):
     )
     overdue_repeat_days = models.PositiveIntegerField(
         default=7, help_text="Repeat overdue reminders every N days."
+    )
+    default_interval_months = models.PositiveIntegerField(
+        "Default calibration interval (months)",
+        default=12,
+        help_text="Used when neither the device's model nor its manufacturer sets an interval.",
+    )
+    default_reminder_days = models.CharField(
+        max_length=100,
+        default="30,7,0",
+        validators=[validate_day_list],
+        help_text="Days before the due date when reminders are sent, comma separated (e.g. 60,14,0). "
+        "Used when neither the model nor the manufacturer sets them.",
     )
     smtp_host = models.CharField(max_length=200, blank=True)
     smtp_port = models.PositiveIntegerField(default=587)

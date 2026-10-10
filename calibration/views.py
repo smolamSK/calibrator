@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import SetPasswordForm
 from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMessage
-from django.db.models import Count, Prefetch, ProtectedError, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -19,12 +19,13 @@ from . import importer
 from .forms import (
     AttachmentForm,
     CalibrationEventForm,
-    CategoryForm,
     DeviceFilterForm,
     DeviceForm,
+    DeviceModelEditForm,
     DeviceModelForm,
     FieldDefinitionForm,
     ImportUploadForm,
+    ManufacturerEditForm,
     ManufacturerForm,
     ProfileForm,
     SiteSettingsForm,
@@ -36,7 +37,6 @@ from .models import (
     Attachment,
     AuditLog,
     CalibrationEvent,
-    Category,
     Device,
     DeviceFieldValue,
     DeviceModel,
@@ -65,7 +65,7 @@ from .services import (
 
 def _get_device(request, pk, edit=False):
     device = get_object_or_404(
-        Device.objects.select_related("category", "owner", "manufacturer", "device_model"), pk=pk
+        Device.objects.select_related("owner", "manufacturer", "device_model"), pk=pk
     )
     allowed = can_edit(request.user, device) if edit else can_view(request.user, device)
     if not allowed:
@@ -88,7 +88,7 @@ def dashboard(request):
     today = timezone.localdate()
     settings = SiteSettings.load()
     soon = today + timedelta(days=settings.due_soon_days)
-    qs = visible_devices(request.user).select_related("category", "owner")
+    qs = visible_devices(request.user).select_related("owner", "manufacturer", "device_model")
     active = qs.filter(status__in=Device.REMINDER_STATUSES)
     context = {
         "today": today,
@@ -112,8 +112,7 @@ def dashboard(request):
 
 def _filtered_devices(request):
     form = DeviceFilterForm(request.GET or None, user=request.user)
-    qs = visible_devices(request.user).select_related("category", "owner", "manufacturer", "device_model")
-    category = None
+    qs = visible_devices(request.user).select_related("owner", "manufacturer", "device_model")
     if form.is_valid():
         d = form.cleaned_data
         if d["q"]:
@@ -123,9 +122,6 @@ def _filtered_devices(request):
                 | Q(location__icontains=q) | Q(manufacturer__name__icontains=q) | Q(device_model__name__icontains=q)
                 | Q(field_values__value_text__icontains=q)
             ).distinct()
-        if d["category"]:
-            category = d["category"]
-            qs = qs.filter(category=category)
         if d["status"] == "in_use":
             qs = qs.exclude(status=Device.STATUS_RETIRED)
         elif d["status"]:
@@ -134,6 +130,8 @@ def _filtered_devices(request):
             qs = qs.filter(owner=d["owner"])
         if d["manufacturer"]:
             qs = qs.filter(manufacturer=d["manufacturer"])
+        if d["device_model"]:
+            qs = qs.filter(device_model=d["device_model"])
         if d["due"]:
             today = timezone.localdate()
             soon = today + timedelta(days=SiteSettings.load().due_soon_days)
@@ -144,16 +142,27 @@ def _filtered_devices(request):
                 "ok": active & Q(next_calibration_date__gt=soon),
                 "unknown": active & Q(next_calibration_date__isnull=True),
             }[d["due"]])
-    return form, qs, category
+    return form, qs
+
+
+def _list_columns(form):
+    """show_in_list fields of the manufacturer and model being filtered on."""
+    if not form.is_valid():
+        return []
+    brand, model = form.cleaned_data["manufacturer"], form.cleaned_data["device_model"]
+    if model and not brand:
+        brand = model.manufacturer
+    owners = [o for o in (brand, model) if o]
+    return [f for o in owners for f in o.fields.filter(show_in_list=True)]
 
 
 @login_required
 def device_list(request):
-    form, qs, category = _filtered_devices(request)
+    form, qs = _filtered_devices(request)
     fmt = request.GET.get("export")
     if fmt in ("csv", "xlsx"):
         return export_devices(qs, fmt)
-    extra_fields = list(category.fields.filter(show_in_list=True)) if category else []
+    extra_fields = _list_columns(form)
     devices = list(qs.prefetch_related("field_values"))
     soon_days = SiteSettings.load().due_soon_days
     today = timezone.localdate()
@@ -176,7 +185,6 @@ def device_list(request):
 EXPORT_COLUMNS = [
     ("Asset ID", lambda d: d.asset_tag),
     ("Name", lambda d: d.name),
-    ("Category", lambda d: d.category.name),
     ("Owner", lambda d: d.owner.username),
     ("Owner name", lambda d: str(d.owner)),
     ("Status", lambda d: d.get_status_display()),
@@ -193,16 +201,17 @@ EXPORT_COLUMNS = [
 
 
 def export_devices(qs, fmt):
-    devices = list(qs.prefetch_related("field_values__field", "category__fields"))
+    devices = list(qs.prefetch_related("field_values__field", "manufacturer__fields", "device_model__fields"))
     custom_names = []
     for d in devices:
-        for f in d.category.fields.all():
+        for f in d.field_definitions():
             if f.field_type != FieldDefinition.FILE and f.name not in custom_names:
                 custom_names.append(f.name)
     header = [c[0] for c in EXPORT_COLUMNS] + custom_names
     rows = []
     for d in devices:
-        values = {v.field.name: v for v in d.field_values.all() if v.field.category_id == d.category_id}
+        current = {f.id for f in d.field_definitions()}
+        values = {v.field.name: v for v in d.field_values.all() if v.field_id in current}
         row = [fn(d) for _, fn in EXPORT_COLUMNS]
         for name in custom_names:
             v = values.get(name)
@@ -265,14 +274,19 @@ def device_detail(request, pk):
     })
 
 
-def _category_from_request(request, default=None):
-    raw = request.POST.get("category") or request.GET.get("category")
-    if raw:
-        try:
-            return Category.objects.get(pk=raw)
-        except (Category.DoesNotExist, ValueError):
-            pass
-    return default
+def _lookups_from_request(request, device=None):
+    """Manufacturer and model chosen on the (re)submitted form; their fields are shown."""
+    data = request.POST if request.method == "POST" else request.GET
+    if "manufacturer" not in data and "device_model" not in data:
+        return (device.manufacturer, device.device_model) if device else (None, None)
+
+    def pick(model, key):
+        raw = data.get(key)
+        return model.objects.filter(pk=raw).first() if raw and raw.isdigit() else None
+
+    model = pick(DeviceModel, "device_model")
+    brand = pick(Manufacturer, "manufacturer") or (model.manufacturer if model else None)
+    return brand, model
 
 
 DEVICE_FIELDS = DeviceForm.Meta.fields
@@ -280,12 +294,10 @@ DEVICE_FIELDS = DeviceForm.Meta.fields
 
 @login_required
 def device_create(request):
-    if not Category.objects.exists():
-        messages.warning(request, "No categories exist yet. An administrator must create one first.")
-        return redirect("device_list")
-    category = _category_from_request(request)
+    brand, model = _lookups_from_request(request)
+    lookups = {"manufacturer": brand, "device_model": model}
     if request.method == "POST" and "_reload" not in request.POST:
-        form = DeviceForm(request.POST, request.FILES, user=request.user, category=category)
+        form = DeviceForm(request.POST, request.FILES, user=request.user, **lookups)
         if form.is_valid():
             device = form.save(commit=False)
             if not request.user.can_edit_all:
@@ -308,19 +320,18 @@ def device_create(request):
     else:
         initial = request.POST.dict() if request.method == "POST" else {"owner": request.user.pk}
         initial.pop("csrfmiddlewaretoken", None)
-        if category:
-            initial["category"] = category.pk
-        form = DeviceForm(user=request.user, category=category, initial=initial)
+        form = DeviceForm(user=request.user, initial=initial, **lookups)
     return render(request, "calibration/device_form.html", {"form": form, "device": None})
 
 
 @login_required
 def device_edit(request, pk):
     device = _get_device(request, pk, edit=True)
-    category = _category_from_request(request, device.category)
+    brand, model = _lookups_from_request(request, device)
+    lookups = {"manufacturer": brand, "device_model": model}
     if request.method == "POST" and "_reload" not in request.POST:
         before = snapshot(device, DEVICE_FIELDS)
-        form = DeviceForm(request.POST, request.FILES, instance=device, user=request.user, category=category)
+        form = DeviceForm(request.POST, request.FILES, instance=device, user=request.user, **lookups)
         if form.is_valid():
             changes = form_changes(form, before)
             device = form.save()
@@ -335,7 +346,7 @@ def device_edit(request, pk):
         if request.method == "POST":
             initial = request.POST.dict()
             initial.pop("csrfmiddlewaretoken", None)
-        form = DeviceForm(instance=device, user=request.user, category=category, initial=initial)
+        form = DeviceForm(instance=device, user=request.user, initial=initial, **lookups)
     return render(request, "calibration/device_form.html", {"form": form, "device": device})
 
 
@@ -541,17 +552,50 @@ def brand_list(request):
     })
 
 
+def _refresh_due_dates(devices):
+    """Recompute next dates after an inherited interval changed."""
+    for device in devices.filter(interval_override_months__isnull=True).select_related("manufacturer", "device_model"):
+        device.refresh_calibration_dates()
+
+
+@editor_all_required
+def brand_detail(request, pk):
+    brand = get_object_or_404(Manufacturer, pk=pk)
+    return render(request, "calibration/lookup_detail.html", {
+        "obj": brand, "what": "manufacturer",
+        "fields": brand.fields.annotate(value_count=Count("values")),
+        "device_count": brand.devices.count(),
+        "models": brand.models.annotate(device_count=Count("devices")),
+        "settings": SiteSettings.load(),
+    })
+
+
+@editor_all_required
+def model_detail(request, pk):
+    model = get_object_or_404(DeviceModel.objects.select_related("manufacturer"), pk=pk)
+    return render(request, "calibration/lookup_detail.html", {
+        "obj": model, "what": "model",
+        "fields": model.fields.annotate(value_count=Count("values")),
+        "brand_fields": model.manufacturer.fields.all(),
+        "device_count": model.devices.count(),
+        "settings": SiteSettings.load(),
+    })
+
+
 @editor_all_required
 def brand_edit(request, pk=None):
     brand = get_object_or_404(Manufacturer, pk=pk) if pk else Manufacturer(created_by=request.user)
-    before = snapshot(brand, ["name"]) if pk else {}
-    form = ManufacturerForm(request.POST or None, instance=brand, prefix=None if pk else "brand")
+    form_class = ManufacturerEditForm if pk else ManufacturerForm
+    before = snapshot(brand, form_class.Meta.fields) if pk else {}
+    form = form_class(request.POST or None, instance=brand, prefix=None if pk else "brand")
     if request.method == "POST" and form.is_valid():
         changes = form_changes(form, before)
         brand = form.save()
-        audit(request.user, "brand renamed" if pk else "brand added", brand, changes=changes)
+        if "interval_months" in form.changed_data:
+            _refresh_due_dates(brand.devices.all())
+        audit(request.user, "brand edited" if pk else "brand added", brand, changes=changes)
         messages.success(request, f"Manufacturer “{brand.name}” saved.")
-        return redirect("brand_list")
+        return redirect("brand_detail", pk=brand.pk) if pk else redirect("brand_list")
     if request.method == "POST" and not pk:
         messages.error(request, _form_error_text(form))
         return redirect("brand_list")
@@ -561,17 +605,20 @@ def brand_edit(request, pk=None):
 @editor_all_required
 def model_edit(request, pk=None):
     model = get_object_or_404(DeviceModel, pk=pk) if pk else DeviceModel(created_by=request.user)
-    before = snapshot(model, ["manufacturer", "name"]) if pk else {}
-    form = DeviceModelForm(request.POST or None, instance=model, prefix=None if pk else "model")
+    form_class = DeviceModelEditForm if pk else DeviceModelForm
+    before = snapshot(model, form_class.Meta.fields) if pk else {}
+    form = form_class(request.POST or None, instance=model, prefix=None if pk else "model")
     if request.method == "POST" and form.is_valid():
         changes = form_changes(form, before)
         model = form.save()
         if pk and "manufacturer" in form.changed_data:
             # keep devices consistent: their brand follows the model
             model.devices.update(manufacturer=model.manufacturer)
+        if {"manufacturer", "interval_months"} & set(form.changed_data):
+            _refresh_due_dates(model.devices.all())
         audit(request.user, "model edited" if pk else "model added", model, changes=changes)
         messages.success(request, f"Model “{model.name}” saved.")
-        return redirect("brand_list")
+        return redirect("model_detail", pk=model.pk) if pk else redirect("brand_list")
     if request.method == "POST" and not pk:
         messages.error(request, _form_error_text(form))
         return redirect("brand_list")
@@ -605,71 +652,24 @@ def model_delete(request, pk):
     return redirect("brand_list")
 
 
-# --------------------------------------------------------------- categories
+# -------------------------------------------------- brand & model fields
 
 
-@admin_required
-def category_list(request):
-    categories = Category.objects.annotate(
-        device_count=Count("devices", distinct=True), field_count=Count("fields", distinct=True)
-    )
-    return render(request, "calibration/category_list.html", {"categories": categories})
+def _owner_url(fd):
+    if fd.device_model_id:
+        return reverse("model_detail", args=[fd.device_model_id])
+    return reverse("brand_detail", args=[fd.manufacturer_id])
 
 
-@admin_required
-def category_edit(request, pk=None):
-    category = get_object_or_404(Category, pk=pk) if pk else None
-    if request.method == "POST":
-        before = snapshot(category, CategoryForm.Meta.fields) if category else {}
-        form = CategoryForm(request.POST, instance=category)
-        if form.is_valid():
-            changes = form_changes(form, before)
-            category = form.save()
-            if pk:
-                for device in category.devices.filter(interval_override_months__isnull=True):
-                    device.refresh_calibration_dates()
-            audit(request.user, "edited" if pk else "created", category, changes=changes)
-            messages.success(request, "Category saved.")
-            return redirect("category_detail", pk=category.pk)
+@editor_all_required
+def field_edit(request, pk=None, brand_pk=None, model_pk=None):
+    if pk:
+        fd = get_object_or_404(FieldDefinition.objects.select_related("manufacturer", "device_model"), pk=pk)
+    elif model_pk:
+        fd = FieldDefinition(device_model=get_object_or_404(DeviceModel, pk=model_pk))
     else:
-        form = CategoryForm(instance=category)
-    return render(request, "calibration/category_form.html", {"form": form, "category": category})
-
-
-@admin_required
-def category_detail(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    return render(request, "calibration/category_detail.html", {
-        "category": category,
-        "fields": category.fields.annotate(value_count=Count("values")),
-        "device_count": category.devices.count(),
-    })
-
-
-@admin_required
-def category_delete(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    if request.method == "POST":
-        try:
-            name = category.name
-            category.delete()
-        except ProtectedError:
-            messages.error(request, "This category still has devices. Move or delete them first.")
-            return redirect("category_detail", pk=pk)
-        audit(request.user, "deleted", "Category", changes={"Name": (name, None)})
-        messages.success(request, f"Category {name} deleted.")
-        return redirect("category_list")
-    return render(request, "calibration/confirm_delete.html", {
-        "object": category, "what": "category",
-        "warning": "Only possible when no devices use this category." if category.devices.exists() else "",
-        "cancel_url": reverse("category_detail", args=[pk]),
-    })
-
-
-@admin_required
-def field_edit(request, category_pk, pk=None):
-    category = get_object_or_404(Category, pk=category_pk)
-    fd = get_object_or_404(FieldDefinition, pk=pk, category=category) if pk else FieldDefinition(category=category)
+        fd = FieldDefinition(manufacturer=get_object_or_404(Manufacturer, pk=brand_pk))
+    owner = fd.owner
     if request.method == "POST":
         before = snapshot(fd, FieldDefinitionForm.Meta.fields) if pk else {}
         form = FieldDefinitionForm(request.POST, instance=fd)
@@ -678,28 +678,31 @@ def field_edit(request, category_pk, pk=None):
             fd = form.save()
             audit(request.user, "field edited" if pk else "field added", fd, changes=changes)
             messages.success(request, f"Field '{fd.name}' saved.")
-            return redirect("category_detail", pk=category.pk)
+            return redirect(_owner_url(fd))
     else:
-        initial = {} if pk else {"order": (category.fields.count() + 1) * 10}
+        initial = {} if pk else {"order": (owner.fields.count() + 1) * 10}
         form = FieldDefinitionForm(instance=fd, initial=initial)
-    return render(request, "calibration/field_form.html", {"form": form, "category": category, "field": fd if pk else None})
+    return render(request, "calibration/field_form.html", {
+        "form": form, "owner": owner, "field": fd if pk else None, "cancel_url": _owner_url(fd),
+    })
 
 
-@admin_required
-def field_delete(request, category_pk, pk):
-    fd = get_object_or_404(FieldDefinition, pk=pk, category_id=category_pk)
+@editor_all_required
+def field_delete(request, pk):
+    fd = get_object_or_404(FieldDefinition.objects.select_related("manufacturer", "device_model"), pk=pk)
     count = fd.values.count()
+    back = _owner_url(fd)
     if request.method == "POST":
         for v in fd.values.exclude(value_file=""):
             v.value_file.delete(save=False)
         audit(request.user, "field deleted", fd, changes={"Field": (fd.name, None)})
         fd.delete()
         messages.success(request, "Field deleted.")
-        return redirect("category_detail", pk=category_pk)
+        return redirect(back)
     return render(request, "calibration/confirm_delete.html", {
         "object": fd, "what": "field",
         "warning": f"{count} stored value(s) for this field will be deleted." if count else "",
-        "cancel_url": reverse("category_detail", args=[category_pk]),
+        "cancel_url": back,
     })
 
 
@@ -792,6 +795,8 @@ def settings_view(request):
             if key in changes:
                 changes[key] = ("***", "***")
         form.save()
+        if "default_interval_months" in form.changed_data:
+            _refresh_due_dates(Device.objects.all())
         audit(request.user, "settings edited", settings, changes=changes)
         messages.success(request, "Settings saved.")
         return redirect("settings")
@@ -832,7 +837,7 @@ def import_upload(request):
             request.session[IMPORT_SESSION_KEY] = {"headers": headers, "rows": rows}
             return redirect("import_preview")
     return render(request, "calibration/import_upload.html", {
-        "form": form, "targets": importer.TARGETS, "categories": Category.objects.prefetch_related("fields"),
+        "form": form, "targets": importer.TARGETS, "brands": Manufacturer.objects.prefetch_related("fields", "models__fields"),
     })
 
 
@@ -900,7 +905,7 @@ def ics_feed(request, token):
     user = User.objects.filter(ics_token=token, is_active=True).first()
     if not user:
         raise Http404
-    devices = visible_devices(user).select_related("category", "owner")
+    devices = visible_devices(user).select_related("owner", "manufacturer", "device_model")
     scope = request.GET.get("scope")
     if scope == "mine" or not user.can_view_all:
         devices = devices.filter(owner=user)

@@ -15,15 +15,17 @@
     <ul>
       <li>First row = column headers. One device per row.</li>
       <li>Rows whose <b>Asset ID</b> already exists <b>update</b> that device; others are created.</li>
-      <li><b>Category</b> must match an existing category name. <b>Owner</b> = username, email or full name of an existing user.</li>
+      <li><b>Owner</b> = username, email or full name of an existing user.</li>
       <li><b>Last calibration date</b> (DD.MM.YYYY) creates a history entry; the next date is calculated from the interval.</li>
       <li><b>Manufacturer</b> and <b>Model</b> are matched to the brand list ignoring upper/lower case; missing ones are added automatically.</li>
-      <li>Columns named exactly like a category's custom field (e.g. “Range”) fill that field.</li>
+      <li>Columns named exactly like a custom field of the row’s manufacturer or model (e.g. “Range”) fill that field. Only manufacturers and models that already exist have fields.</li>
     </ul>
     <p class="mb-1"><b>Recognised columns:</b></p>
     <p>{% for key, label, required, aliases in targets %}<span class="badge {% if required %}bg-dark{% else %}bg-light text-dark border{% endif %} me-1">{{ label }}</span>{% endfor %}</p>
-    {% if categories %}<p class="mb-1"><b>Custom field columns per category:</b></p>
-    <ul>{% for c in categories %}<li>{{ c.name }}: {% for f in c.fields.all %}{% if f.field_type != 'file' %}“{{ f.name }}”{% if not forloop.last %}, {% endif %}{% endif %}{% empty %}<span class="text-muted">none</span>{% endfor %}</li>{% endfor %}</ul>{% endif %}
+    {% if brands %}<p class="mb-1"><b>Custom field columns per manufacturer / model:</b></p>
+    <ul>{% for b in brands %}{% if b.fields.all %}<li>{{ b.name }}: {% for f in b.fields.all %}{% if f.field_type != 'file' %}“{{ f.name }}” {% endif %}{% endfor %}</li>{% endif %}
+      {% for m in b.models.all %}{% if m.fields.all %}<li>{{ b.name }} {{ m.name }}: {% for f in m.fields.all %}{% if f.field_type != 'file' %}“{{ f.name }}” {% endif %}{% endfor %}</li>{% endif %}{% endfor %}
+    {% endfor %}</ul>{% endif %}
   </div></div></div>
 </div>
 {% endblock %}

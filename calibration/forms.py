@@ -4,7 +4,6 @@ from django.contrib.auth.forms import UserCreationForm
 from .models import (
     Attachment,
     CalibrationEvent,
-    Category,
     Device,
     DeviceFieldValue,
     DeviceModel,
@@ -99,12 +98,12 @@ class DeviceForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Device
         fields = [
-            "asset_tag", "name", "category", "owner", "status", "manufacturer", "device_model",
+            "asset_tag", "name", "owner", "status", "manufacturer", "device_model",
             "serial_number", "location", "interval_override_months", "notes",
         ]
         widgets = {"notes": forms.Textarea(attrs={"rows": 3}), "device_model": ModelSelect}
 
-    def __init__(self, *args, user, category=None, **kwargs):
+    def __init__(self, *args, user, manufacturer=None, device_model=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
         self.fields["owner"].queryset = User.objects.filter(is_active=True)
@@ -112,18 +111,23 @@ class DeviceForm(BootstrapMixin, forms.ModelForm):
             del self.fields["owner"]
         if self.instance.pk:
             del self.fields["initial_calibration_date"]
-        self.fields["category"].widget.attrs["data-reload"] = "1"
+        for name in ("manufacturer", "device_model"):
+            self.fields[name].widget.attrs["data-reload"] = "1"
         self.fields["manufacturer"].widget.attrs["data-lookup"] = "manufacturer"
         self.fields["device_model"].widget.attrs["data-lookup"] = "model"
         self.fields["device_model"].queryset = DeviceModel.objects.select_related("manufacturer")
 
-        self.selected_category = category or (self.instance.category if self.instance.category_id else None)
+        if manufacturer is None and device_model is None and self.instance.pk:
+            manufacturer, device_model = self.instance.manufacturer, self.instance.device_model
+        if device_model and manufacturer and device_model.manufacturer_id != manufacturer.pk:
+            device_model = None
+        self.field_owners = [o for o in (manufacturer, device_model) if o]
         self.custom_fields = []
-        if self.selected_category:
+        if self.field_owners:
             existing = {}
             if self.instance.pk:
                 existing = {v.field_id: v for v in self.instance.field_values.all()}
-            for fd in self.selected_category.fields.all():
+            for fd in [fd for owner in self.field_owners for fd in owner.fields.all()]:
                 name = custom_field_name(fd)
                 value = existing.get(fd.id)
                 self.fields[name] = build_custom_field(fd, value)
@@ -185,7 +189,6 @@ class DeviceForm(BootstrapMixin, forms.ModelForm):
 
 class DeviceFilterForm(forms.Form):
     q = forms.CharField(required=False, label="Search")
-    category = forms.ModelChoiceField(Category.objects.all(), required=False, empty_label="All categories")
     status = forms.ChoiceField(
         required=False, choices=[("", "Any status"), ("in_use", "In use (not retired)")] + Device.STATUS_CHOICES
     )
@@ -195,6 +198,9 @@ class DeviceFilterForm(forms.Form):
                  ("ok", "OK"), ("unknown", "Never calibrated")],
     )
     manufacturer = forms.ModelChoiceField(Manufacturer.objects.all(), required=False, empty_label="All brands")
+    device_model = forms.ModelChoiceField(
+        DeviceModel.objects.select_related("manufacturer"), required=False, empty_label="All models", widget=ModelSelect
+    )
     owner = forms.ModelChoiceField(User.objects.filter(is_active=True), required=False, empty_label="All owners")
 
     def __init__(self, *args, user=None, **kwargs):
@@ -205,6 +211,8 @@ class DeviceFilterForm(forms.Form):
             css = "form-select form-select-sm" if isinstance(f.widget, forms.Select) else "form-control form-control-sm"
             f.widget.attrs["class"] = css
         self.fields["q"].widget.attrs["placeholder"] = "Asset ID, name, serial, location…"
+        self.fields["manufacturer"].widget.attrs["data-lookup"] = "manufacturer"
+        self.fields["device_model"].widget.attrs["data-lookup"] = "model"
 
 
 # -------------------------------------------------------- brands & models
@@ -236,6 +244,11 @@ class ManufacturerForm(LookupNameMixin, BootstrapMixin, forms.ModelForm):
         return Manufacturer.objects.filter(name__iexact=name)
 
 
+class ManufacturerEditForm(ManufacturerForm):
+    class Meta(ManufacturerForm.Meta):
+        fields = ["name", "interval_months", "reminder_days"]
+
+
 class DeviceModelForm(LookupNameMixin, BootstrapMixin, forms.ModelForm):
     class Meta:
         model = DeviceModel
@@ -248,6 +261,11 @@ class DeviceModelForm(LookupNameMixin, BootstrapMixin, forms.ModelForm):
     def duplicates(self, name):
         brand = self.cleaned_data.get("manufacturer")
         return DeviceModel.objects.filter(manufacturer=brand, name__iexact=name)
+
+
+class DeviceModelEditForm(DeviceModelForm):
+    class Meta(DeviceModelForm.Meta):
+        fields = ["manufacturer", "name", "interval_months", "reminder_days"]
 
 
 # ------------------------------------------------------- calibration events
@@ -298,17 +316,6 @@ class AttachmentForm(BootstrapMixin, forms.ModelForm):
 # ------------------------------------------------------------ admin forms
 
 
-class CategoryForm(BootstrapMixin, forms.ModelForm):
-    class Meta:
-        model = Category
-        fields = ["name", "description", "default_interval_months", "reminder_days"]
-        widgets = {"description": forms.Textarea(attrs={"rows": 2})}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.apply_bootstrap()
-
-
 class FieldDefinitionForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = FieldDefinition
@@ -321,6 +328,14 @@ class FieldDefinitionForm(BootstrapMixin, forms.ModelForm):
             self.fields["field_type"].disabled = True
             self.fields["field_type"].help_text = "Type cannot be changed once devices have values for this field."
         self.apply_bootstrap()
+
+    def clean_name(self):
+        name = " ".join(self.cleaned_data["name"].split())
+        fd = self.instance
+        siblings = FieldDefinition.objects.filter(manufacturer=fd.manufacturer, device_model=fd.device_model)
+        if siblings.filter(name__iexact=name).exclude(pk=fd.pk).exists():
+            raise forms.ValidationError(f"A field named “{name}” already exists here.")
+        return name
 
 
 class UserCreateForm(BootstrapMixin, UserCreationForm):
@@ -370,6 +385,7 @@ class SiteSettingsForm(BootstrapMixin, forms.ModelForm):
         model = SiteSettings
         fields = [
             "site_name", "base_url", "notifications_enabled", "due_soon_days", "overdue_repeat_days",
+            "default_interval_months", "default_reminder_days",
             "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password", "from_email",
         ]
 

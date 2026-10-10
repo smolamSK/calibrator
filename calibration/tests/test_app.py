@@ -12,7 +12,6 @@ from calibration.ics import build_calendar
 from calibration.models import (
     AuditLog,
     CalibrationEvent,
-    Category,
     Device,
     DeviceFieldValue,
     DeviceModel,
@@ -37,17 +36,19 @@ class Fixture(TestCase):
         cls.viewer = mk("viewer", User.ROLE_VIEWER_ALL)
         cls.editor = mk("editor", User.ROLE_EDITOR_ALL)
         cls.admin = mk("admin", User.ROLE_ADMIN)
-        cls.cat = Category.objects.create(name="Multimeter", default_interval_months=12, reminder_days="30,7,0")
-        cls.f_range = FieldDefinition.objects.create(category=cls.cat, name="Range", field_type="text")
+        # default interval 12 months, reminders 30,7,0 (SiteSettings defaults)
+        cls.brand = Manufacturer.objects.create(name="Acme")
+        cls.model = DeviceModel.objects.create(manufacturer=cls.brand, name="M1")
+        cls.f_range = FieldDefinition.objects.create(manufacturer=cls.brand, name="Range", field_type="text")
         cls.f_class = FieldDefinition.objects.create(
-            category=cls.cat, name="Accuracy class", field_type="dropdown", options="A\nB\nC"
+            manufacturer=cls.brand, name="Accuracy class", field_type="dropdown", options="A\nB\nC"
         )
-        cls.dev = Device.objects.create(asset_tag="MM-1", name="Fluke 87", category=cls.cat, owner=cls.owner)
-        cls.dev_other = Device.objects.create(asset_tag="MM-2", name="Fluke 179", category=cls.cat, owner=cls.other)
+        cls.dev = Device.objects.create(asset_tag="MM-1", name="Fluke 87", manufacturer=cls.brand, owner=cls.owner)
+        cls.dev_other = Device.objects.create(asset_tag="MM-2", name="Fluke 179", manufacturer=cls.brand, owner=cls.other)
 
 
 class NextDateTests(Fixture):
-    def test_category_interval_and_override(self):
+    def test_default_interval_and_override(self):
         CalibrationEvent.objects.create(device=self.dev, date=date(2026, 1, 31))
         self.dev.refresh_calibration_dates()
         self.assertEqual(self.dev.next_calibration_date, date(2027, 1, 31))
@@ -69,15 +70,56 @@ class NextDateTests(Fixture):
         self.assertIsNone(self.dev.next_calibration_date)
         self.assertEqual(self.dev.due_state(), "unknown")
 
-    def test_category_interval_change_updates_devices(self):
+    def test_interval_fallback_chain(self):
+        CalibrationEvent.objects.create(device=self.dev, date=date(2026, 1, 1))
+        dev = Device.objects.get(pk=self.dev.pk)
+        self.assertEqual((dev.effective_interval_months, dev.interval_source), (12, "default"))
+        self.brand.interval_months = 6
+        self.brand.save()
+        dev = Device.objects.get(pk=self.dev.pk)
+        self.assertEqual((dev.effective_interval_months, dev.interval_source), (6, "manufacturer"))
+        self.model.interval_months = 3
+        self.model.save()
+        dev.device_model = self.model
+        self.assertEqual((dev.effective_interval_months, dev.interval_source), (3, "model"))
+        dev.interval_override_months = 2
+        self.assertEqual((dev.effective_interval_months, dev.interval_source), (2, "device"))
+        dev.refresh_calibration_dates()
+        self.assertEqual(dev.next_calibration_date, date(2026, 3, 1))
+
+    def test_reminder_days_fallback_chain(self):
+        dev = Device.objects.get(pk=self.dev.pk)
+        self.assertEqual(dev.effective_reminder_days_list, [30, 7, 0])
+        self.brand.reminder_days = "14,0"
+        self.brand.save()
+        dev = Device.objects.get(pk=self.dev.pk)
+        self.assertEqual(dev.effective_reminder_days_list, [14, 0])
+        self.model.reminder_days = "60"
+        self.model.save()
+        dev.device_model = self.model
+        self.assertEqual(dev.effective_reminder_days_list, [60])
+
+    def test_brand_interval_change_updates_devices(self):
         CalibrationEvent.objects.create(device=self.dev, date=date(2026, 1, 1))
         self.dev.refresh_calibration_dates()
-        self.client.force_login(self.admin)
-        self.client.post(reverse("category_edit", args=[self.cat.pk]), {
-            "name": "Multimeter", "default_interval_months": 24, "reminder_days": "30,7,0",
+        self.client.force_login(self.editor)
+        self.client.post(reverse("brand_edit", args=[self.brand.pk]), {
+            "name": "Acme", "interval_months": 24, "reminder_days": "",
         })
         self.dev.refresh_from_db()
         self.assertEqual(self.dev.next_calibration_date, date(2028, 1, 1))
+
+    def test_settings_default_change_updates_devices(self):
+        CalibrationEvent.objects.create(device=self.dev, date=date(2026, 1, 1))
+        self.dev.refresh_calibration_dates()
+        self.client.force_login(self.admin)
+        form = self.client.get(reverse("settings")).context["form"]
+        data = {k: v for k, v in form.initial.items() if v is not None and k != "smtp_password"}
+        data.update(default_interval_months=6, notifications_enabled="on")
+        r = self.client.post(reverse("settings"), data)
+        self.assertEqual(r.status_code, 302, r.content[:3000])
+        self.dev.refresh_from_db()
+        self.assertEqual(self.dev.next_calibration_date, date(2026, 7, 1))
 
 
 class PermissionTests(Fixture):
@@ -110,14 +152,14 @@ class PermissionTests(Fixture):
 
     def test_admin_pages_forbidden_for_editor(self):
         self.client.force_login(self.editor)
-        for name in ("category_list", "user_list", "settings"):
+        for name in ("user_list", "settings"):
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
         self.assertEqual(self.client.get(reverse("import_upload")).status_code, 200)
 
     def test_owner_created_device_is_forced_to_self(self):
         self.client.force_login(self.owner)
         r = self.client.post(reverse("device_create"), {
-            "asset_tag": "MM-9", "name": "New", "category": self.cat.pk, "owner": self.other.pk,
+            "asset_tag": "MM-9", "name": "New", "manufacturer": self.brand.pk, "owner": self.other.pk,
             "status": "active", f"cf_{self.f_class.pk}": "B",
         })
         self.assertEqual(r.status_code, 302, r.content[:2000])
@@ -128,7 +170,7 @@ class DeviceFlowTests(Fixture):
     def test_create_with_custom_fields_and_initial_calibration(self):
         self.client.force_login(self.editor)
         r = self.client.post(reverse("device_create"), {
-            "asset_tag": "MM-3", "name": "Keysight", "category": self.cat.pk, "owner": self.owner.pk,
+            "asset_tag": "MM-3", "name": "Keysight", "manufacturer": self.brand.pk, "owner": self.owner.pk,
             "status": "active", "initial_calibration_date": "15.03.2026",
             f"cf_{self.f_range.pk}": "0-1000 V", f"cf_{self.f_class.pk}": "A",
         })
@@ -142,7 +184,7 @@ class DeviceFlowTests(Fixture):
     def test_invalid_dropdown_value_rejected(self):
         self.client.force_login(self.editor)
         r = self.client.post(reverse("device_edit", args=[self.dev.pk]), {
-            "asset_tag": "MM-1", "name": "Fluke 87", "category": self.cat.pk, "owner": self.owner.pk,
+            "asset_tag": "MM-1", "name": "Fluke 87", "manufacturer": self.brand.pk, "owner": self.owner.pk,
             "status": "active", f"cf_{self.f_class.pk}": "Z",
         })
         self.assertEqual(r.status_code, 200)
@@ -174,15 +216,16 @@ class DeviceFlowTests(Fixture):
         self.dev.refresh_from_db()
         self.assertEqual(self.dev.last_calibration_date, e1.date)
 
-    def test_category_change_reload_does_not_save(self):
-        cat2 = Category.objects.create(name="Caliper", default_interval_months=24)
-        FieldDefinition.objects.create(category=cat2, name="Length", field_type="number")
+    def test_brand_change_reload_does_not_save(self):
+        brand2 = Manufacturer.objects.create(name="Mitutoyo")
+        FieldDefinition.objects.create(manufacturer=brand2, name="Length", field_type="number")
         self.client.force_login(self.editor)
         r = self.client.post(reverse("device_edit", args=[self.dev.pk]), {
-            "asset_tag": "MM-1", "name": "Changed", "category": cat2.pk, "owner": self.owner.pk,
+            "asset_tag": "MM-1", "name": "Changed", "manufacturer": brand2.pk, "owner": self.owner.pk,
             "status": "active", "_reload": "1",
         })
         self.assertContains(r, "Length")
+        self.assertNotContains(r, "Accuracy class")
         self.dev.refresh_from_db()
         self.assertEqual(self.dev.name, "Fluke 87")
 
@@ -190,13 +233,16 @@ class DeviceFlowTests(Fixture):
         CalibrationEvent.objects.create(device=self.dev, date=date(2026, 1, 1))
         self.dev.refresh_calibration_dates()
         pages = [
-            reverse("dashboard"), reverse("device_list"), reverse("device_list") + f"?category={self.cat.pk}&due=ok",
+            reverse("dashboard"), reverse("device_list"), reverse("device_list") + f"?manufacturer={self.brand.pk}&due=ok",
             reverse("device_detail", args=[self.dev.pk]), reverse("device_create"),
-            reverse("device_create") + f"?category={self.cat.pk}", reverse("profile"), reverse("password_change"),
+            reverse("device_create") + f"?manufacturer={self.brand.pk}", reverse("profile"), reverse("password_change"),
         ]
         admin_pages = [
-            reverse("category_list"), reverse("category_detail", args=[self.cat.pk]),
-            reverse("field_create", args=[self.cat.pk]), reverse("user_list"), reverse("user_create"),
+            reverse("brand_detail", args=[self.brand.pk]), reverse("model_detail", args=[self.model.pk]),
+            reverse("brand_edit", args=[self.brand.pk]), reverse("model_edit", args=[self.model.pk]),
+            reverse("brand_field_create", args=[self.brand.pk]), reverse("model_field_create", args=[self.model.pk]),
+            reverse("field_edit", args=[self.f_class.pk]), reverse("field_delete", args=[self.f_class.pk]),
+            reverse("user_list"), reverse("user_create"),
             reverse("settings"), reverse("audit_log"), reverse("import_upload"),
             reverse("device_edit", args=[self.dev.pk]), reverse("event_create", args=[self.dev.pk]),
             reverse("brand_list"),
@@ -297,17 +343,17 @@ class ImportTests(Fixture):
 
     def test_csv_create_update_and_errors(self):
         csv_text = (
-            "Asset ID;Name;Category;Owner;Last calibration date;Range;Accuracy class\n"
-            "MM-1;Fluke 87 V;Multimeter;owner;01.02.2026;0-600 V;B\n"
-            "MM-5;New meter;Multimeter;other@example.com;15.06.2026;;A\n"
-            "MM-6;Bad;Nope;ghost;31.02.2026;;Z\n"
+            "Asset ID;Name;Manufacturer;Owner;Last calibration date;Range;Accuracy class\n"
+            "MM-1;Fluke 87 V;Acme;owner;01.02.2026;0-600 V;B\n"
+            "MM-5;New meter;acme;other@example.com;15.06.2026;;A\n"
+            "MM-6;Bad;Acme;ghost;31.02.2026;;Z\n"
         )
         headers, rows = importer.read_table(self._upload(csv_text))
         mapping = importer.guess_mapping(headers)
         self.assertEqual(mapping["last_calibration_date"], 4)
         results = importer.validate(headers, rows, mapping)
         self.assertEqual([r.action for r in results], ["update", "create", "error"])
-        self.assertEqual(len(results[2].errors), 3)  # category, owner, date (custom fields need a known category)
+        self.assertEqual(len(results[2].errors), 3)  # owner, date, dropdown value
         created, updated = importer.apply(results, self.admin)
         self.assertEqual((created, updated), (1, 1))
         self.dev.refresh_from_db()
@@ -322,8 +368,8 @@ class ImportTests(Fixture):
 
         wb = Workbook()
         ws = wb.active
-        ws.append(["Asset", "Device name", "Category", "Owner", "Calibration date"])
-        ws.append(["MM-7", "From Excel", "multimeter", "editor", timezone.datetime(2026, 4, 1)])
+        ws.append(["Asset", "Device name", "Owner", "Calibration date"])
+        ws.append(["MM-7", "From Excel", "editor", timezone.datetime(2026, 4, 1)])
         buf = io.BytesIO()
         wb.save(buf)
         self.client.force_login(self.editor)
@@ -345,8 +391,7 @@ class BrandModelTests(Fixture):
         self.keysight = Manufacturer.objects.create(name="Keysight")
 
     def device_post(self, **extra):
-        data = {"asset_tag": "MM-1", "name": "Fluke 87", "category": self.cat.pk, "owner": self.owner.pk,
-                "status": "active", f"cf_{self.f_class.pk}": "A"}
+        data = {"asset_tag": "MM-1", "name": "Fluke 87", "owner": self.owner.pk, "status": "active"}
         data.update(extra)
         return data
 
@@ -422,7 +467,7 @@ class BrandModelTests(Fixture):
         self.client.post(reverse("model_edit", args=[self.m87.pk]), {"manufacturer": self.keysight.pk, "name": "87V"})
         self.dev.refresh_from_db()
         self.assertEqual(self.dev.manufacturer, self.keysight)
-        self.assertTrue(AuditLog.objects.filter(action="brand renamed").exists())
+        self.assertTrue(AuditLog.objects.filter(action="brand edited").exists())
 
     def test_list_filter_search_and_export(self):
         self.dev.manufacturer, self.dev.device_model = self.fluke, self.m87
@@ -437,11 +482,11 @@ class BrandModelTests(Fixture):
 
     def test_import_creates_and_reuses_case_insensitively(self):
         csv_text = (
-            "Asset ID;Name;Category;Owner;Manufacturer;Model\n"
-            "MM-1;Fluke 87;Multimeter;owner;FLUKE;87v\n"
-            "MM-8;Caliper;Multimeter;owner;Mitutoyo;CD-15\n"
-            "MM-9;Caliper 2;Multimeter;owner;mitutoyo;CD-15\n"
-            "MM-10;Orphan;Multimeter;owner;;X1\n"
+            "Asset ID;Name;Owner;Manufacturer;Model\n"
+            "MM-1;Fluke 87;owner;FLUKE;87v\n"
+            "MM-8;Caliper;owner;Mitutoyo;CD-15\n"
+            "MM-9;Caliper 2;owner;mitutoyo;CD-15\n"
+            "MM-10;Orphan;owner;;X1\n"
         )
         headers, rows = importer.read_table(SimpleUploadedFile("d.csv", csv_text.encode()))
         results = importer.validate(headers, rows, importer.guess_mapping(headers))
@@ -453,3 +498,52 @@ class BrandModelTests(Fixture):
         self.assertEqual(Manufacturer.objects.filter(name__iexact="mitutoyo").count(), 1)
         self.assertEqual(DeviceModel.objects.filter(name="CD-15").count(), 1)
         self.assertEqual(Device.objects.get(asset_tag="MM-9").device_model.name, "CD-15")
+
+
+class LookupFieldTests(Fixture):
+    def test_device_form_shows_brand_and_model_fields(self):
+        f_probe = FieldDefinition.objects.create(device_model=self.model, name="Probe type", field_type="text")
+        self.client.force_login(self.editor)
+        r = self.client.get(reverse("device_edit", args=[self.dev.pk]) + f"?manufacturer={self.brand.pk}&device_model={self.model.pk}")
+        self.assertContains(r, "Accuracy class")
+        self.assertContains(r, "Probe type")
+        r = self.client.post(reverse("device_edit", args=[self.dev.pk]), {
+            "asset_tag": "MM-1", "name": "Fluke 87", "owner": self.owner.pk, "status": "active",
+            "manufacturer": self.brand.pk, "device_model": self.model.pk,
+            f"cf_{self.f_class.pk}": "C", f"cf_{f_probe.pk}": "K-type",
+        })
+        self.assertEqual(r.status_code, 302)
+        dev = Device.objects.get(pk=self.dev.pk)
+        self.assertEqual(
+            [(f.name, v.display() if v else "") for f, v in dev.custom_values()],
+            [("Range", ""), ("Accuracy class", "C"), ("Probe type", "K-type")],
+        )
+        r = self.client.get(reverse("device_list") + f"?device_model={self.model.pk}")
+        self.assertContains(r, "MM-1")
+
+    def test_field_management_on_model_page(self):
+        self.client.force_login(self.owner)
+        url = reverse("model_field_create", args=[self.model.pk])
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.client.force_login(self.editor)
+        r = self.client.post(url, {"name": "Probe type", "field_type": "text", "order": 10})
+        self.assertRedirects(r, reverse("model_detail", args=[self.model.pk]))
+        fd = FieldDefinition.objects.get(device_model=self.model)
+        self.assertContains(self.client.get(reverse("model_detail", args=[self.model.pk])), "Probe type")
+        # same name allowed on a different owner, not twice on the same one
+        r = self.client.post(url, {"name": "Probe type", "field_type": "text", "order": 20})
+        self.assertEqual(r.status_code, 200)
+        r = self.client.post(reverse("field_edit", args=[fd.pk]), {"name": "Probe", "field_type": "text", "order": 5})
+        self.assertRedirects(r, reverse("model_detail", args=[self.model.pk]))
+        r = self.client.post(reverse("field_delete", args=[fd.pk]))
+        self.assertRedirects(r, reverse("model_detail", args=[self.model.pk]))
+        self.assertFalse(FieldDefinition.objects.filter(pk=fd.pk).exists())
+
+    def test_list_columns_for_filtered_brand(self):
+        self.f_class.show_in_list = True
+        self.f_class.save()
+        DeviceFieldValue.objects.create(device=self.dev, field=self.f_class, value_text="B")
+        self.client.force_login(self.viewer)
+        r = self.client.get(reverse("device_list") + f"?manufacturer={self.brand.pk}")
+        self.assertEqual([f.name for f in r.context["extra_fields"]], ["Accuracy class"])
+        self.assertEqual(self.client.get(reverse("device_list")).context["extra_fields"], [])

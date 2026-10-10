@@ -49,7 +49,7 @@ def build_calendar(devices, base_url="", name="Calibrations"):
         due = d.next_calibration_date
         desc = [
             f"Device: {d.asset_tag} {d.name}",
-            f"Category: {d.category}",
+            f"Manufacturer / model: {d.manufacturer} {d.device_model or ''}".rstrip() if d.manufacturer else "",
             f"Owner: {d.owner}",
             f"Location: {d.location}" if d.location else "",
             f"Last calibration: {d.last_calibration_date:%d.%m.%Y}" if d.last_calibration_date else "",

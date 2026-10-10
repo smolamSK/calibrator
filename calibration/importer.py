@@ -11,7 +11,6 @@ from django.db import transaction
 
 from .models import (
     CalibrationEvent,
-    Category,
     Device,
     DeviceFieldValue,
     DeviceModel,
@@ -27,7 +26,6 @@ TARGETS = [
     # key, label, required, header aliases
     ("asset_tag", "Asset ID", True, ["asset id", "asset", "asset tag", "id", "inventory number", "inv no", "tag"]),
     ("name", "Name", True, ["name", "device", "device name", "description", "instrument"]),
-    ("category", "Category", True, ["category", "type", "device type"]),
     ("owner", "Owner (username or email)", True, ["owner", "user", "responsible", "username", "email", "owner email"]),
     ("status", "Status", False, ["status", "state"]),
     ("manufacturer", "Manufacturer", False, ["manufacturer", "make", "brand", "vendor"]),
@@ -124,7 +122,6 @@ class RowResult:
     values: dict = field(default_factory=dict)
     custom: dict = field(default_factory=dict)  # field_id -> raw string
     device: Device = None
-    category: Category = None
     owner: User = None
     last_date: date = None
     brand_name: str = ""  # resolved/created in apply()
@@ -159,14 +156,18 @@ def clean_name(value):
 
 
 def validate(headers, rows, mapping):
-    brands = {b.name.casefold(): b for b in Manufacturer.objects.all()}
-    models_by_brand = {(m.manufacturer_id, m.name.casefold()) for m in DeviceModel.objects.all()}
-    categories = {norm(c.name): c for c in Category.objects.prefetch_related("fields")}
+    brands = {b.name.casefold(): b for b in Manufacturer.objects.prefetch_related("fields")}
+    models_by_brand = {(m.manufacturer_id, m.name.casefold()): m for m in DeviceModel.objects.prefetch_related("fields")}
     users = list(User.objects.all())
     by_login = {u.username.lower(): u for u in users}
     by_email = {u.email.lower(): u for u in users if u.email}
     by_name = {norm(u.get_full_name()): u for u in users if u.get_full_name()}
-    existing = {d.asset_tag.lower(): d for d in Device.objects.all()}
+    existing = {
+        d.asset_tag.lower(): d
+        for d in Device.objects.select_related("manufacturer", "device_model").prefetch_related(
+            "manufacturer__fields", "device_model__fields"
+        )
+    }
     norm_headers = [norm(h) for h in headers]
     seen = set()
     results = []
@@ -187,13 +188,6 @@ def validate(headers, rows, mapping):
             r.device = existing.get(tag.lower())
             r.action = "update" if r.device else "create"
         r.values["asset_tag"] = tag
-
-        if get("category"):
-            r.category = categories.get(norm(get("category")))
-            if not r.category:
-                r.errors.append(f"Unknown category '{get('category')}' (create it first)")
-        elif r.device:
-            r.category = r.device.category
 
         if get("owner"):
             o = get("owner").lower()
@@ -218,12 +212,16 @@ def validate(headers, rows, mapping):
                 r.brand_name = r.device.manufacturer.name
             else:
                 r.errors.append("Model given without a manufacturer")
+        # existing manufacturer/model whose custom fields can be filled from this row
+        field_owners = []
         if r.brand_name:
             brand = brands.get(r.brand_name.casefold())
+            model = models_by_brand.get((brand.pk, r.model_name.casefold())) if brand and r.model_name else None
             r.new_brand = brand is None
-            r.new_model = bool(r.model_name) and (
-                brand is None or (brand.pk, r.model_name.casefold()) not in models_by_brand
-            )
+            r.new_model = bool(r.model_name) and model is None
+            field_owners = [o for o in (brand, model) if o]
+        elif r.device:
+            field_owners = [o for o in (r.device.manufacturer, r.device.device_model) if o]
 
         if get("interval_override_months"):
             try:
@@ -237,9 +235,9 @@ def validate(headers, rows, mapping):
             except ValueError as e:
                 r.errors.append(str(e))
 
-        if r.category:
+        if field_owners:
             mapped_cols = {v for v in mapping.values() if v is not None}
-            for fd in r.category.fields.all():
+            for fd in [fd for o in field_owners for fd in o.fields.all()]:
                 if norm(fd.name) in norm_headers:
                     col = norm_headers.index(norm(fd.name))
                     if col in mapped_cols:
@@ -267,16 +265,13 @@ def apply(results, user):
         values = dict(r.values)
         cert = values.pop("certificate_no", "")
         if r.action == "create":
-            device = Device(category=r.category, owner=r.owner, **values)
+            device = Device(owner=r.owner, **values)
             device.save()
             created += 1
             audit(user, "imported (created)", device, changes={k: (None, v) for k, v in values.items()})
         else:
             device = r.device
             changes = {}
-            if r.category and r.category != device.category:
-                changes["category"] = (device.category, r.category)
-                device.category = r.category
             if r.owner and r.owner != device.owner:
                 changes["owner"] = (device.owner, r.owner)
                 device.owner = r.owner

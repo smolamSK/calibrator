@@ -24,14 +24,13 @@
         <dt class="col-6">Last calibration</dt><dd class="col-6">{{ device.last_calibration_date|default:"—" }}</dd>
         <dt class="col-6">Next calibration</dt><dd class="col-6 fw-bold">{{ device.next_calibration_date|default:"—" }}</dd>
         <dt class="col-6">Interval</dt><dd class="col-6">{{ device.effective_interval_months }} months
-          <span class="text-muted small">{% if device.interval_override_months %}(device override){% else %}(category default){% endif %}</span></dd>
-        <dt class="col-6">Reminders</dt><dd class="col-6">{{ device.category.reminder_days }} days before</dd>
+          <span class="text-muted small">({% if device.interval_source == "device" %}device override{% elif device.interval_source == "default" %}default{% else %}from {{ device.interval_source }}{% endif %})</span></dd>
+        <dt class="col-6">Reminders</dt><dd class="col-6">{{ device.effective_reminder_days_list|join:", " }} days before</dd>
       </dl>
     </div></div>
     <div class="card mb-3"><div class="card-body">
       <h5 class="card-title">Details</h5>
       <dl class="row mb-0">
-        <dt class="col-5">Category</dt><dd class="col-7">{{ device.category }}</dd>
         <dt class="col-5">Owner</dt><dd class="col-7">{{ device.owner }}{% if device.owner.email %} <a class="small" href="mailto:{{ device.owner.email }}">{{ device.owner.email }}</a>{% endif %}</dd>
         {% if device.manufacturer %}<dt class="col-5">Manufacturer</dt><dd class="col-7"><a href="{% url 'device_list' %}?manufacturer={{ device.manufacturer_id }}">{{ device.manufacturer }}</a></dd>{% endif %}
         {% if device.device_model %}<dt class="col-5">Model</dt><dd class="col-7">{{ device.device_model }}</dd>{% endif %}

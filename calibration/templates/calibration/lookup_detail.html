@@ -1,0 +1,56 @@
+{% extends "calibration/base.html" %}
+{% block title %}{% if what == "model" %}{{ obj.manufacturer }} {% endif %}{{ obj }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+  <div>
+    <div class="text-muted small">{% if what == "model" %}Model of <a href="{% url 'brand_detail' obj.manufacturer_id %}">{{ obj.manufacturer }}</a>{% else %}Manufacturer{% endif %}</div>
+    <h3 class="mb-1">{{ obj }}</h3>
+    <div class="text-muted">
+      Interval {% if obj.interval_months %}{{ obj.interval_months }} months{% elif what == "model" and obj.manufacturer.interval_months %}{{ obj.manufacturer.interval_months }} months <span class="small">(from manufacturer)</span>{% else %}{{ settings.default_interval_months }} months <span class="small">(default)</span>{% endif %} ·
+      reminders {% if obj.reminder_days %}{{ obj.reminder_days }}{% elif what == "model" and obj.manufacturer.reminder_days %}{{ obj.manufacturer.reminder_days }} <span class="small">(from manufacturer)</span>{% else %}{{ settings.default_reminder_days }} <span class="small">(default)</span>{% endif %} days before ·
+      <a href="{% url 'device_list' %}?{% if what == 'model' %}manufacturer={{ obj.manufacturer_id }}&device_model={{ obj.pk }}{% else %}manufacturer={{ obj.pk }}{% endif %}">{{ device_count }} device(s)</a>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{% if what == 'model' %}{% url 'model_edit' obj.pk %}{% else %}{% url 'brand_edit' obj.pk %}{% endif %}">Edit</a>
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0">Custom fields</h5>
+    <a class="btn btn-sm btn-primary" href="{% if what == 'model' %}{% url 'model_field_create' obj.pk %}{% else %}{% url 'brand_field_create' obj.pk %}{% endif %}">+ Add field</a>
+  </div>
+  <p class="small text-muted">
+    {% if what == "model" %}Devices of this model get these fields after the manufacturer’s fields{% if brand_fields %} ({% for f in brand_fields %}{{ f.name }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}.
+    {% else %}Every device of this manufacturer gets these fields, followed by the fields of its model.{% endif %}
+  </p>
+  <div class="table-responsive"><table class="table table-sm">
+    <thead><tr><th>Order</th><th>Name</th><th>Type</th><th>Required</th><th>In list</th><th>Options / help</th><th>Values</th><th></th></tr></thead>
+    <tbody>
+    {% for f in fields %}
+    <tr><td>{{ f.order }}</td><td>{{ f.name }}</td><td>{{ f.get_field_type_display }}</td>
+      <td>{{ f.required|yesno:"Yes,–" }}</td><td>{{ f.show_in_list|yesno:"Yes,–" }}</td>
+      <td class="small">{% if f.field_type == 'dropdown' %}{{ f.options_list|join:", " }}{% else %}{{ f.help_text }}{% endif %}</td>
+      <td>{{ f.value_count }}</td>
+      <td class="nowrap"><a href="{% url 'field_edit' f.pk %}">edit</a> · <a class="text-danger" href="{% url 'field_delete' f.pk %}">delete</a></td></tr>
+    {% empty %}<tr><td colspan="8" class="text-muted">No custom fields yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+
+{% if what == "manufacturer" %}
+<div class="card"><div class="card-body">
+  <h5>Models</h5>
+  <ul class="list-unstyled mb-0">
+  {% for m in models %}
+    <li><a href="{% url 'model_detail' m.pk %}">{{ m.name }}</a>
+      <span class="small text-muted">{% if m.interval_months %}{{ m.interval_months }} months · {% endif %}{{ m.device_count }} device{{ m.device_count|pluralize }}</span></li>
+  {% empty %}<li class="text-muted">No models yet. Add them on the <a href="{% url 'brand_list' %}">Brands &amp; models</a> page.</li>
+  {% endfor %}
+  </ul>
+</div></div>
+{% endif %}
+<p class="mt-3"><a href="{% url 'brand_list' %}">← Brands &amp; models</a></p>
+{% endblock %}

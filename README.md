@@ -1,6 +1,6 @@
 # Calibrator
 
-A web app that tracks device calibrations: owners, full calibration history and certificates, custom fields per category, email reminders and a calendar feed.
+A web app that tracks device calibrations: owners, full calibration history and certificates, manufacturers and models with their own intervals and custom fields, email reminders and a calendar feed.
 
 Django + SQLite. Data lives in `data/` (database and uploaded files). Configuration lives in `.env`.
 
@@ -9,8 +9,8 @@ Django + SQLite. Data lives in `data/` (database and uploaded files). Configurat
 |---|---|---|---|
 | Owner | own | own | |
 | Viewer | all | own | |
-| Editor | all | all | import, audit log, receives all reminders |
-| Administrator | all | all | categories and fields, users, settings and SMTP |
+| Editor | all | all | brands, models and their fields, import, audit log, receives all reminders |
+| Administrator | all | all | users, settings and SMTP |
 
 ## Setup (once)
 ```sh
@@ -38,14 +38,14 @@ BEHIND_HTTPS_PROXY=1
 The proxy must pass the `Host`, `X-Forwarded-Proto` and `X-Forwarded-For` headers. Allow uploads of at least 30 MB (for nginx: `client_max_body_size 30m;`).
 
 ## First steps in the app
-1. **Admin → Settings**: set the public URL. Add SMTP details and click "Send test email".
-2. **Admin → Categories**: create categories with an interval, reminder days (e.g. `60,14,0`) and custom fields.
+1. **Admin → Settings**: set the public URL, the default calibration interval and reminder days (e.g. `60,14,0`). Add SMTP details and click "Send test email".
+2. **Brands & models**: add manufacturers and models. Open one to set its own interval and reminder days (they override the defaults; a model overrides its manufacturer) and its custom fields. A device gets its manufacturer's fields followed by its model's.
 3. **Admin → Users**: create accounts and roles.
 4. **Import**: upload an Excel or CSV file, or add devices by hand.
 
 ## Reminders
 The `calibrator-reminders.timer` runs `send_reminders` every day at 07:00 (catching up if a run was missed).
-- **Before the due date:** one email at each lead-day threshold set on the category.
+- **Before the due date:** one email at each lead-day threshold (from the device's model, else its manufacturer, else Settings).
 - **After the due date:** an email every N days, set in Settings.
 - **Recipients:** the device owner plus all Editors and Administrators who have notifications on, each getting one summary email per day.
 - **Excluded devices:** Retired and Out of service devices never trigger reminders.

@@ -13,10 +13,10 @@
 <form class="card card-body mb-3" method="get">
   <div class="row g-2">
     <div class="col-12 col-md">{{ form.q }}</div>
-    <div class="col-6 col-md">{{ form.category }}</div>
     <div class="col-6 col-md">{{ form.status }}</div>
     <div class="col-6 col-md">{{ form.due }}</div>
     <div class="col-6 col-md">{{ form.manufacturer }}</div>
+    <div class="col-6 col-md">{{ form.device_model }}</div>
     {% if form.owner %}<div class="col-6 col-md">{{ form.owner }}</div>{% endif %}
     <div class="col-12 col-md-auto"><button class="btn btn-sm btn-dark w-100">Filter</button></div>
   </div>
@@ -25,7 +25,7 @@
 <div class="table-responsive">
 <table class="table table-hover table-sm mb-0">
   <thead class="table-light"><tr>
-    <th>Asset ID</th><th>Name</th><th>Category</th><th>Brand / model</th><th>Owner</th><th>Status</th><th>Location</th>
+    <th>Asset ID</th><th>Name</th><th>Brand / model</th><th>Owner</th><th>Status</th><th>Location</th>
     {% for f in extra_fields %}<th>{{ f.name }}</th>{% endfor %}
     <th>Last cal.</th><th>Next cal.</th><th>Due</th>
   </tr></thead>
@@ -34,7 +34,6 @@
   <tr>
     <td class="nowrap"><a href="{% url 'device_detail' d.pk %}">{{ d.asset_tag }}</a></td>
     <td>{{ d.name }}</td>
-    <td>{{ d.category }}</td>
     <td>{{ d.manufacturer|default:"" }} {{ d.device_model|default:"" }}</td>
     <td>{{ d.owner }}</td>
     <td>{% status_badge d %}</td>
@@ -50,5 +49,5 @@
   </tbody>
 </table>
 </div></div>
-{% if not extra_fields %}<p class="small text-muted mt-2">Tip: filter by a category to see its custom columns.</p>{% endif %}
+{% if not extra_fields %}<p class="small text-muted mt-2">Tip: filter by a manufacturer or model to see its custom columns.</p>{% endif %}
 {% endblock %}

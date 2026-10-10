@@ -25,13 +25,13 @@
   <span class="badge bg-danger fs-6">{{ counts.error }} errors</span>
 </div>
 <div class="card mb-3"><div class="table-responsive"><table class="table table-sm mb-0">
-  <thead class="table-light"><tr><th>Row</th><th>Action</th><th>Asset ID</th><th>Name</th><th>Category</th><th>Owner</th><th>Brand / model</th><th>Last cal.</th><th>Custom fields</th><th>Problems</th></tr></thead>
+  <thead class="table-light"><tr><th>Row</th><th>Action</th><th>Asset ID</th><th>Name</th><th>Owner</th><th>Brand / model</th><th>Last cal.</th><th>Custom fields</th><th>Problems</th></tr></thead>
   <tbody>
   {% for r in results %}
   <tr class="{% if r.action == 'error' %}table-danger{% endif %}">
     <td>{{ r.line }}</td>
     <td>{% if r.action == 'create' %}<span class="badge bg-success">new</span>{% elif r.action == 'update' %}<span class="badge bg-primary">update</span>{% else %}<span class="badge bg-danger">error</span>{% endif %}</td>
-    <td>{{ r.values.asset_tag }}</td><td>{{ r.values.name }}</td><td>{{ r.category|default:"" }}</td><td>{{ r.owner|default:"" }}</td>
+    <td>{{ r.values.asset_tag }}</td><td>{{ r.values.name }}</td><td>{{ r.owner|default:"" }}</td>
     <td>{{ r.brand_name }}{% if r.new_brand %} <span class="badge bg-info text-dark">new brand</span>{% endif %}
       {{ r.model_name }}{% if r.new_model %} <span class="badge bg-info text-dark">new model</span>{% endif %}</td>
     <td>{{ r.last_date|default:"" }}</td>

@@ -7,7 +7,7 @@
   <form method="post">{% csrf_token %}
     {% include "calibration/_form.html" %}
     <button class="btn btn-primary">Save</button>
-    <a class="btn btn-outline-secondary" href="{% url 'brand_list' %}">Cancel</a>
+    <a class="btn btn-outline-secondary" href="{% if what == 'model' %}{% url 'model_detail' obj.pk %}{% else %}{% url 'brand_detail' obj.pk %}{% endif %}">Cancel</a>
   </form>
 </div></div>
 {% endblock %}
